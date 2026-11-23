@@ -1,0 +1,16 @@
+{
+  "id": "bondok.walk.side",
+  "character": "bondok",
+  "file": "walk-side.png",
+  "style": "pixel",
+  "frameWidth": 61,
+  "frameHeight": 75,
+  "frames": 8,
+  "fps": 10,
+  "loop": true,
+  "facing": "right",
+  "anchor": { "feetY": 72, "pivotX": 30 },
+  "displayScale": 1,
+  "status": "draft",
+  "source": "استُخرجت من نموذج التصميم WorldTest.dc.html بتاريخ 2026-11-24"
+}

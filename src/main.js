@@ -1,0 +1,37 @@
+// LifeQuest — نقطة الدخول
+import { initRouter } from './ui/router.js';
+import { openDB } from './db/db.js';
+import { store } from './store.js';
+import { registerSW } from './sw-register.js';
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout after ' + ms + 'ms')), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
+
+async function boot() {
+  try {
+    await withTimeout(openDB(), 3000);
+    await withTimeout(store.load(), 3000);
+  } catch (err) {
+    // Export file is canonical (docs); app stays usable in-memory if IndexedDB is unavailable.
+    store.state.ready = true;
+    console.error('boot fell back to memory mode', err);
+  }
+  initRouter();
+  registerSW();
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
+}
+
+boot().catch(err => {
+  console.error(err);
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="empty"><div class="big">⚠️</div>حصل خطأ في التشغيل. جرّب تحديث الصفحة.</div>';
+});

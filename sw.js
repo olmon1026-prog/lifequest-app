@@ -1,0 +1,70 @@
+// Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
+const BUILD = '__BUILD__';
+const CACHE = 'lq-' + BUILD;
+
+const FILES = [
+  'index.html',
+  'manifest.webmanifest',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+  'src/main.js',
+  'src/store.js',
+  'src/sw-register.js',
+  'src/styles/base.css',
+  'src/core/ids.js',
+  'src/core/dates.js',
+  'src/core/progress.js',
+  'src/core/xp.js',
+  'src/core/streak.js',
+  'src/core/schema.js',
+  'src/core/importer.js',
+  'src/core/exporter.js',
+  'src/db/db.js',
+  'src/db/migrations.js',
+  'src/db/repo.js',
+  'src/ui/router.js',
+  'src/ui/topbar.js',
+  'src/ui/sheet.js',
+  'src/ui/today.js',
+  'src/ui/goals.js',
+  'src/ui/more.js',
+  'src/world/world.js',
+  'src/world/layout.js',
+  'src/world/renderer.js',
+  'src/world/sprites.js',
+  'src/world/sound.js',
+  'assets/characters/sami/walk-side.png',
+  'assets/characters/sami/walk-side.json',
+  'assets/characters/bondok/walk-side.png',
+  'assets/characters/bondok/walk-side.json',
+];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k.startsWith('lq-') && k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('index.html'))
+    );
+    return;
+  }
+  e.respondWith(
+    caches.match(e.request).then(hit => hit || fetch(e.request))
+  );
+});

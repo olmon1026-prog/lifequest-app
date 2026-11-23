@@ -1,0 +1,45 @@
+{
+  "id": "sami.walk.side",
+  "character": "sami",
+  "file": "walk-side.png",
+  "style": "pixel",
+  "frameWidth": 56,
+  "frameHeight": 99,
+  "frames": 16,
+  "fps": 10,
+  "loop": true,
+  "facing": "right",
+  "anchor": {
+    "feetY": 98,
+    "pivotX": 25.4
+  },
+  "displayScale": 2,
+  "paletteColors": 38,
+  "transparentIndex": 38,
+  "source": {
+    "video": "1000249997.mp4",
+    "videoFps": 24.0,
+    "cycleSourceFrames": 38,
+    "sampledSourceFrames": [
+      0,
+      2,
+      5,
+      7,
+      10,
+      12,
+      14,
+      17,
+      19,
+      21,
+      24,
+      26,
+      28,
+      31,
+      33,
+      36
+    ],
+    "groundLineRemoved": true
+  },
+  "status": "draft",
+  "strideLengthPx": null
+}

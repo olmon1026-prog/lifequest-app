@@ -1,0 +1,21 @@
+{
+  "format": "lifequest-plan",
+  "schemaVersion": 1,
+  "plan": {
+    "id": "plan-example-start",
+    "title": "خطة البداية",
+    "description": "مثال جاهز للتجربة",
+    "language": "ar",
+    "createdBy": "LifeQuest",
+    "createdAt": "2026-11-24"
+  },
+  "items": [
+    {"id": "y1", "type": "goal_year", "title": "صحة ولياقة أفضل", "parentId": null, "period": {"year": 2026}},
+    {"id": "m1", "type": "goal_month", "title": "انتظام هذا الشهر", "parentId": "y1", "period": {"year": 2026, "month": 11}},
+    {"id": "w1", "type": "goal_week", "title": "أسبوع البداية", "parentId": "m1", "period": {"weekOf": "2026-11-24"}},
+    {"id": "t1", "type": "task", "title": "المشي ٢٠ دقيقة", "parentId": "w1", "priority": 2, "area": "health", "due": {"date": "2026-11-24", "time": "07:00"}},
+    {"id": "s1", "type": "subtask", "title": "تجهيز الحذاء", "parentId": "t1", "area": "health"},
+    {"id": "t2", "type": "task", "title": "قراءة ٣٠ صفحة", "parentId": "w1", "priority": 1, "area": "learning", "due": {"date": "2026-11-25", "time": null}},
+    {"id": "t3", "type": "task", "title": "مراجعة خطة الأسبوع", "parentId": null, "priority": 3, "area": "work", "due": {"date": "2026-11-24", "time": null}}
+  ]
+}
