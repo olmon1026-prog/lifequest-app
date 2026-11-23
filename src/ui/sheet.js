@@ -1,5 +1,5 @@
 // الشاشة السفلية لإضافة/تعديل عنصر (PROJECT_MEMORY §10)
-import { addItem, updateItem } from '../db/repo.js';
+import { addItem, updateItem, archiveItem, deleteItem, countDescendants } from '../db/repo.js';
 import { quickDate, todayStr, fmtDateAr } from '../core/dates.js';
 import { store } from '../store.js';
 
@@ -11,7 +11,7 @@ export function openAddSheet(preset = {}) {
   const today = todayStr();
   const state = {
     title: '', type: preset.type || 'task', parentId: preset.parentId || null,
-    priority: 1, dueKind: preset.dueDate ? null : 'today', area: preset.area || null,
+    priority: preset.priority || 1, dueKind: preset.dueDate ? null : 'today', area: preset.area || null,
     dueDate: preset.dueDate || null, dueTime: null, notes: '',
     keepOpen: true,
   };
@@ -78,6 +78,11 @@ export function openAddSheet(preset = {}) {
         </div>
         <button class="btn" id="f-save">${preset.editId ? 'حفظ التعديلات' : 'حفظ وإضافة التالي'}</button>
         <button class="btn secondary" id="f-saveclose">حفظ وإغلاق</button>
+        ${preset.editId ? `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn secondary" id="f-archive" style="flex:1">🗄 أرشفة</button>
+          <button class="btn secondary" id="f-delete" style="flex:1;color:var(--warn);border-color:var(--warn)">🗑 حذف</button>
+        </div>` : ''}
       </div>`;
 
     root.querySelector('.sheet-overlay').onclick = close;
@@ -109,6 +114,48 @@ export function openAddSheet(preset = {}) {
     };
     root.querySelector('#f-save').onclick = () => save(true);
     root.querySelector('#f-saveclose').onclick = () => save(false);
+    if (preset.editId) {
+      root.querySelector('#f-archive').onclick = async () => {
+        await archiveItem(preset.editId, true);
+        toast('اتأرشفت ✓');
+        close();
+      };
+      root.querySelector('#f-delete').onclick = () => {
+        const kids = countDescendants(preset.editId).size;
+        showSheetConfirm(
+          kids > 0
+            ? `حذف "${esc(state.title)}"؟ عنده ${kids} عناصر مرتبطة. الأحداث والـ XP المكتسب مش بيتحذفوا.`
+            : `حذف "${esc(state.title)}" نهائيًا؟ الأحداث والـ XP المكتسب مش بيتحذفوا.`,
+          kids > 0
+            ? [
+                { label: 'حذف الكل مع الأبناء', danger: true, action: async () => { await deleteItem(preset.editId); toast('اتحذفت'); close(); } },
+                { label: 'حذف وفك ارتباط الأبناء', action: async () => { await deleteItem(preset.editId, { detachChildren: true }); toast('اتحذفت والأبناء اتفكوا'); close(); } },
+              ]
+            : [
+                { label: 'حذف نهائي', danger: true, action: async () => { await deleteItem(preset.editId); toast('اتحذفت'); close(); } },
+              ]
+        );
+      };
+    }
+  }
+
+  function showSheetConfirm(html, actions) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sheet-overlay';
+    wrap.style.zIndex = 70;
+    wrap.innerHTML = `<div class="sheet" style="z-index:71" role="alertdialog">
+      <p style="margin-bottom:12px">${html}</p>
+      ${actions.map((a, i) => `<button class="btn ${a.danger ? '' : 'secondary'}" data-i="${i}" ${a.danger ? 'style="background:var(--warn);color:#fff"' : ''}>${a.label}</button>`).join('')}
+      <button class="btn secondary" data-i="-1">إلغاء</button>
+    </div>`;
+    wrap.onclick = e => {
+      const b = e.target.closest('[data-i]');
+      if (!b) { if (e.target === wrap) wrap.remove(); return; }
+      const i = +b.dataset.i;
+      wrap.remove();
+      if (i >= 0) actions[i].action();
+    };
+    root.appendChild(wrap);
   }
 
   function markChips(sel, attr, val) {
@@ -141,6 +188,7 @@ export function openEditSheet(item) {
   openAddSheet({
     editId: item.id, type: item.type, parentId: item.parentId,
     dueDate: item.due ? item.due.date : null,
+    priority: item.priority || 1, area: item.area || null,
   });
   // املأ الحقول بعد أول render
   setTimeout(() => {

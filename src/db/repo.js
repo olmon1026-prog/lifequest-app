@@ -119,8 +119,36 @@ export async function archiveItem(id, archive = true) {
   emit();
 }
 
-export async function deleteItem(id) {
-  // حذف العنصر وأبنائه (بعد تأكيد المستخدم في الواجهة). الأحداث لا تُحذف (data-model §7).
+export function countDescendants(id) {
+  const out = new Set();
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const it of store.state.items) {
+      if (it.parentId && (it.parentId === id || out.has(it.parentId)) && !out.has(it.id)) {
+        out.add(it.id); grew = true;
+      }
+    }
+  }
+  return out;
+}
+
+export async function deleteItem(id, { detachChildren = false } = {}) {
+  // الأحداث لا تُحذف (data-model §7). حذف الأب يعرض خيارين (LQ-011):
+  // حذف الأبناء معه (الافتراضي) أو فك ارتباطهم (parentId=null).
+  if (detachChildren) {
+    const detached = [];
+    for (const it of store.state.items) {
+      if (it.parentId === id) { it.parentId = null; it.updatedAt = Date.now(); detached.push(it); }
+    }
+    store.state.items = store.state.items.filter(i => i.id !== id);
+    await bulkWrite(['items'], (s) => {
+      s.items.delete(id);
+      for (const d of detached) s.items.put(d);
+    });
+    emit();
+    return;
+  }
   const toDelete = new Set([id]);
   let grew = true;
   while (grew) {

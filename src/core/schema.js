@@ -1,5 +1,5 @@
 // التحقق من صيغة lifequest-plan الإصدار 1 (file-format §8أ + §8ج)
-import { isValidDate, isValidTime, weekStartOf } from './dates.js';
+import { isValidDate, isValidTime, weekStartOf, todayStr, addDays } from './dates.js';
 
 export const TYPES = ['goal_year', 'goal_month', 'goal_week', 'project', 'stage', 'task', 'subtask'];
 const SUPPORTED_SCHEMA = [1];
@@ -38,6 +38,17 @@ export function validatePlan(text) {
 
   const seen = new Set();
   const byId = new Map();
+  const KNOWN_FIELDS = new Set(['id', 'type', 'title', 'notes', 'parentId', 'status', 'priority', 'due', 'period', 'exercise', 'order', 'createdAt', 'updatedAt', 'completedAt', 'archivedAt', 'source', 'area']);
+  // الأنواع المتوقعة لأب كل نوع (خارجها = W002 تحذير لا خطأ)
+  const EXPECTED_PARENT = {
+    goal_month: ['goal_year'],
+    goal_week: ['goal_month'],
+    project: ['goal_week', 'goal_month', 'goal_year'],
+    stage: ['project'],
+    task: ['stage', 'project', 'goal_week', 'goal_month', 'goal_year'],
+  };
+  const seenTitles = new Map(); // type|title مُطبَّع → أول id
+  const yearAgo = addDays(todayStr(), -366);
   for (const [i, it] of items.entries()) {
     const where = `عنصر رقم ${i + 1}`;
     if (!it || typeof it !== 'object') { errors.push({ code: 'E010', msg: `${where}: مش كائن صالح.` }); continue; }
@@ -72,6 +83,29 @@ export function validatePlan(text) {
     }
     if (it.parentId !== undefined && it.parentId !== null && !byId.has(it.parentId) && !items.some(x => x.id === it.parentId))
       errors.push({ code: 'E013', msg: `"${it.id}": الأب parentId غير موجود في الملف.` });
+    // W001 حقل غير معروف
+    for (const k of Object.keys(it)) {
+      if (!KNOWN_FIELDS.has(k)) warnings.push({ code: 'W001', msg: `"${it.id}": حقل غير معروف (${k}) — سيُتجاهل.` });
+    }
+    // W002 أب بنوع غير معتاد
+    const exp = EXPECTED_PARENT[it.type];
+    if (exp && it.parentId) {
+      const p = items.find(x => x.id === it.parentId);
+      if (p && p.type && !exp.includes(p.type))
+        warnings.push({ code: 'W002', msg: `"${it.id}": الأب نوعه ${p.type} — غير معتاد لعنصر ${it.type}.` });
+    }
+    // W003 احتمال تكرار داخل الملف (نفس النوع والعنوان)
+    const sig = `${it.type}|${String(it.title || '').trim()}`;
+    if (it.type && it.title) {
+      if (seenTitles.has(sig)) warnings.push({ code: 'W003', msg: `"${it.id}": عنوان مكرر داخل الملف مع "${seenTitles.get(sig)}" — تأكد إنه مش نفس العنصر.` });
+      else seenTitles.set(sig, it.id);
+    }
+    // W004 موعد قديم جدًا
+    if (it.due && it.due.date && isValidDate(it.due.date) && it.due.date < yearAgo)
+      warnings.push({ code: 'W004', msg: `"${it.id}": الموعد أقدم من سنة (${it.due.date}) — تأكد من التاريخ.` });
+    // W005 عنصر منجز يُستورد بدون XP
+    if (it.status === 'done')
+      warnings.push({ code: 'W005', msg: `"${it.id}": سيُستورد منجزًا بدون نقاط XP.` });
   }
   // دورات
   for (const it of items) {

@@ -204,4 +204,52 @@ t('pathPoint داخل الحدود', () => {
   }
 });
 
+
+// التحذيرات W001–W005 (file-format §8)
+const warnPlan = (items) => JSON.stringify({ format: 'lifequest-plan', schemaVersion: 1, plan: { id: 'plan-warn', title: 'خطة تحذيرات' }, items });
+t('W001 حقل غير معروف', () => {
+  const v = validatePlan(warnPlan([{ id: 'a', type: 'task', title: 'x', fooBar: 1 }]));
+  assert.ok(v.ok);
+  assert.ok(v.warnings.some(w => w.code === 'W001'));
+});
+t('W002 أب بنوع غير معتاد', () => {
+  const v = validatePlan(warnPlan([
+    { id: 'g', type: 'goal_year', title: 'سنة', period: { year: 2026 } },
+    { id: 'p', type: 'stage', title: 'مرحلة', parentId: 'g' },
+  ]));
+  assert.ok(v.ok);
+  assert.ok(v.warnings.some(w => w.code === 'W002'));
+});
+t('W003 تكرار داخل الملف', () => {
+  const v = validatePlan(warnPlan([
+    { id: 'a', type: 'task', title: 'نفس العنوان' },
+    { id: 'b', type: 'task', title: 'نفس العنوان' },
+  ]));
+  assert.ok(v.ok);
+  assert.ok(v.warnings.some(w => w.code === 'W003'));
+});
+t('W003 ضد الموجود في التطبيق (planMerge)', () => {
+  const existing = [mk({ id: 'e1', title: 'مهمة قديمة', archivedAt: null })];
+  const file = warnPlan([{ id: 'n1', type: 'task', title: 'مهمة قديمة' }]);
+  const m = planMerge(existing, file, 6);
+  assert.ok(m.ok);
+  assert.ok(m.warnings.some(w => w.code === 'W003'));
+});
+t('W004 موعد أقدم من سنة', () => {
+  const old = addDays(todayStr(), -400);
+  const v = validatePlan(warnPlan([{ id: 'a', type: 'task', title: 'x', due: { date: old, time: null } }]));
+  assert.ok(v.ok);
+  assert.ok(v.warnings.some(w => w.code === 'W004'));
+});
+t('W005 عنصر منجز بلا XP', () => {
+  const v = validatePlan(warnPlan([{ id: 'a', type: 'task', title: 'x', status: 'done' }]));
+  assert.ok(v.ok);
+  assert.ok(v.warnings.some(w => w.code === 'W005'));
+});
+t('ملف نظيف بلا تحذيرات زائفة', () => {
+  const v = validatePlan(goodPlan);
+  assert.ok(v.ok);
+  assert.deepEqual(v.warnings, []);
+});
+
 console.log(`\n${passed} اختبارًا نجح كلها ✅`);

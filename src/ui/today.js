@@ -11,7 +11,12 @@ const DEST_LABELS = { health: 'بيت الصحة', learning: 'بيت التعل�
 
 export function renderToday(app, state) {
   const today = todayStr();
-  const items = state.items.filter(i => !i.archivedAt && ['task', 'subtask'].includes(i.type));
+  const allItems = state.items.filter(i => !i.archivedAt && ['task', 'subtask'].includes(i.type));
+  const byIdAll = new Map(allItems.map(i => [i.id, i]));
+  // الفرعية ذات الأب الموجود تُعرض متداخلة تحته، لا كصف مستقل (LQ-026)
+  const hasShownParent = (i) => i.type === 'subtask' && i.parentId && byIdAll.has(i.parentId) &&
+    ['task', 'subtask'].includes(byIdAll.get(i.parentId).type);
+  const items = allItems.filter(i => !hasShownParent(i));
   const overdue = [], dueToday = [], upcoming = [], noDate = [];
   for (const it of items) {
     if (it.status === 'done') continue;
@@ -24,7 +29,8 @@ export function renderToday(app, state) {
   overdue.sort(byDate); dueToday.sort(byPri); upcoming.sort(byDate); noDate.sort(byPri);
 
   const doneToday = state.items.filter(i => !i.archivedAt && i.status === 'done' &&
-    ['task', 'subtask'].includes(i.type) && i.completedAt && todayStr(new Date(i.completedAt)) === today);
+    ['task', 'subtask'].includes(i.type) && i.completedAt && todayStr(new Date(i.completedAt)) === today)
+    .filter(i => !hasShownParent(i));
   const todayTotal = dueToday.length + overdue.length + doneToday.length;
   const xpToday = totalXP(state.events.filter(e => e.day === today));
 
@@ -62,8 +68,23 @@ export function renderToday(app, state) {
     const h = document.createElement('div');
     h.innerHTML = `<div style="padding:12px 16px 2px;font-weight:bold;font-size:14px" class="${cls}">${title} · ${arNum(list.length)}</div>`;
     sections.appendChild(h);
-    for (const it of list) sections.appendChild(taskRow(it, state));
+    for (const it of list) {
+    sections.appendChild(taskRow(it, state));
+    appendSubs(it, 1);
+  }
   };
+  function appendSubs(parent, depth) {
+    if (depth > 5) return;
+    const subs = allItems.filter(i => i.parentId === parent.id && i.type === 'subtask');
+    for (const sub of subs) {
+      const row = taskRow(sub, state);
+      row.style.marginRight = (depth * 22) + 'px';
+      row.style.opacity = '0.95';
+      row.querySelector('.title').style.fontSize = '13px';
+      sections.appendChild(row);
+      appendSubs(sub, depth + 1);
+    }
+  }
   sec('متأخر', overdue);
   sec('اليوم', dueToday);
   sec('قادم', upcoming);
@@ -72,7 +93,10 @@ export function renderToday(app, state) {
     const h = document.createElement('div');
     h.innerHTML = `<div style="padding:12px 16px 2px;font-weight:bold;font-size:14px;color:var(--teal)">أُنجزت اليوم · ${arNum(doneToday.length)}</div>`;
     sections.appendChild(h);
-    for (const it of doneToday) sections.appendChild(taskRow(it, state));
+    for (const it of doneToday) {
+      sections.appendChild(taskRow(it, state));
+      appendSubs(it, 1);
+    }
   }
   if (!items.filter(i => i.status !== 'done').length && !doneToday.length) {
     sections.innerHTML = `<div class="empty"><div class="big">🌙</div>لا مهام بعد. اضغط + وأضف أول مهمة.</div>`;

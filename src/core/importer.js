@@ -12,6 +12,19 @@ export function planMerge(existingItems, fileText, weekStart = 6) {
       .map(i => [i.source.itemId, i])
   );
   const norm = normalizeItems(v.items, planId, weekStart);
+  const warnings = [...v.warnings];
+  // W003: عنوان بنفس النوع موجود فعلًا في التطبيق (من خطة أخرى أو يدوي)
+  const existingSigs = new Map();
+  for (const e of existingItems) {
+    if (e.archivedAt) continue;
+    if (e.source && e.source.planId === planId) continue; // تكرار نفس الخطة يُعالج بالتخطي
+    existingSigs.set(`${e.type}|${String(e.title || '').trim()}`, e.id);
+  }
+  for (const it of norm) {
+    const sig = `${it.type}|${String(it.title || '').trim()}`;
+    if (existingSigs.has(sig))
+      warnings.push({ code: 'W003', msg: `"${it.title}": موجود فعلًا في التطبيق بنفس النوع — تأكد إنه مش تكرار.` });
+  }
   const toAdd = [], toSkip = [];
   for (const it of norm) {
     // العنصر الموجود مسبقًا من نفس الخطة يُتخطى (لا ننزّل done أبدًا)
@@ -19,7 +32,7 @@ export function planMerge(existingItems, fileText, weekStart = 6) {
     else toAdd.push(it);
   }
   return {
-    ok: true, plan: v.plan, warnings: v.warnings,
+    ok: true, plan: v.plan, warnings,
     toAdd, toSkip, counts: countByType(toAdd),
     existingCount: existing.size,
   };
