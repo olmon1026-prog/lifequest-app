@@ -27,7 +27,8 @@ export class Actor {
       const d = Math.hypot(dx, dy);
       const step = Math.min(d, this.speed * dt);
       this.x += dx / d * step; this.y += dy / d * step;
-      this.facing = dx < 0 ? 'left' : 'right';
+      // الوجهة تُحدَّث فقط عند هيمنة الاتجاه الأفقي بوضوح — لا تتقلب مع حركة شبه رأسية
+      if (Math.abs(dx) > Math.abs(dy) * 0.4) this.facing = dx < 0 ? 'left' : 'right';
       this.frame += dt / 85;  // ٨٥م.ث/إطار ضمن نطاق ٨٠–١٢٥ لدورات المشي (LibreSprite)
       if (!this.moving && this.onArrive) { const f = this.onArrive; this.onArrive = null; f(); }
     } else {

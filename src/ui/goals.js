@@ -73,12 +73,17 @@ function nodeEl(item, childrenMap, depth) {
         <div style="font-size:14px;${item.status === 'done' ? 'text-decoration:line-through;color:var(--sub)' : ''}">${esc(item.title)}</div>
         <div class="muted" style="font-size:11px">${typeBadge}</div>
       </div>
+      ${item.type !== 'task' && item.type !== 'subtask' && item.status !== 'done'
+        ? `<button class="addkid" data-add="${item.id}" style="font-size:11px;padding:4px 8px;border:1px solid var(--teal);color:var(--teal);border-radius:10px;background:#fff;white-space:nowrap">+ مهمة</button>`
+        : ''}
       <div style="font-weight:bold;font-size:13px;color:var(--teal)">${arNum(pct)}٪</div>
     </div>
     <div style="height:6px;background:#E3EDEA;border-radius:3px;margin-top:8px;overflow:hidden">
       <div style="height:100%;width:${pct}%;background:${item.status === 'done' ? 'var(--amber)' : 'var(--teal)'}"></div>
     </div>`;
   row.onclick = (e) => { if (!e.target.classList.contains('fold')) openEditSheet(item); };
+  const addkid = row.querySelector('.addkid');
+  if (addkid) addkid.onclick = (e) => { e.stopPropagation(); openAddSheet({ parentId: item.id, type: 'task' }); };
   wrap.appendChild(row);
   const kids = document.createElement('div');
   for (const c of children) kids.appendChild(nodeEl(c, childrenMap, depth + 1));

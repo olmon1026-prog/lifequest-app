@@ -2,7 +2,7 @@
 import { store } from '../store.js';
 import { topbarHTML } from '../ui/topbar.js';
 import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, nearestPathT,
-         cameraFor, destinationProgress, destinationState, heroT, viewOffY, routeWaypoints } from './layout.js';
+         cameraFor, destinationProgress, destinationState, heroT, viewOffY, routeWaypoints, pointBlocked } from './layout.js';
 import { drawScene, preloadBuildings } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
@@ -23,6 +23,7 @@ const engine = {
   queue: [], active: null, phaseEnds: 0, digest: [], wanderAt: 0,
   lastShown: JSON.parse(globalThis.localStorage?.getItem('lq-engine-v1') || 'null'),
   resting: false, doorT: 0, doorTarget: 0, enterAt: 0, camX: 0,
+  trail: [], // أثر سامي (نقطة كل ~١٢px) — بندق يتبعه فلا يعبر مبنى لم يعبره سامي
 };
 function saveEngine() {
   try { localStorage.setItem('lq-engine-v1', JSON.stringify(engine.lastShown)); } catch {}
@@ -147,6 +148,16 @@ export async function renderWorld(app, state) {
     tickBondok(now, dt);
 
     sami.update(dt, now); bondok.update(dt, now);
+
+    // تسجيل أثر سامي: نقطة كل ١٢px أثناء حركته. نقلة بعيدة (انتقال مشهد) تُصفّر الأثر
+    if (sami.visible && sami.moving) {
+      const last = engine.trail[engine.trail.length - 1];
+      if (last && Math.hypot(sami.x - last.x, sami.y - last.y) > 200) engine.trail.length = 0;
+      if (!engine.trail.length || Math.hypot(sami.x - engine.trail[engine.trail.length - 1].x, sami.y - engine.trail[engine.trail.length - 1].y) >= 12) {
+        engine.trail.push({ x: sami.x, y: sami.y });
+        if (engine.trail.length > 48) engine.trail.shift();
+      }
+    }
 
     // الكاميرا تتبع سامي بنعومة، ثم تُلتقط لبكسل صحيح (قاعدة فن البكسل: لا عينات كسرية)
     const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
@@ -341,6 +352,16 @@ function chainWalk(actor, points, done) {
   actor.goTo(p.x, p.y, () => chainWalk(actor, rest, done));
 }
 
+// هل القطعة المستقيمة بين نقطتين سالكة؟ عينات كل ٦px على بصمات المباني بهامشها
+function segClear(x0, y0, x1, y1) {
+  const d = Math.hypot(x1 - x0, y1 - y0), steps = Math.max(1, Math.ceil(d / 6));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    if (pointBlocked(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false;
+  }
+  return true;
+}
+
 // مشي موجَّه حول بصمات المباني: مستقيم إن كان سالكًا، وإلا عبر الطريق الحجري —
 // الخط المستقيم عبر واجهة كان يرسم الممثل فوق الجدار/السطح (تشخيص جولة p29)
 function walkTo(actor, x, y, done = null) {
@@ -417,11 +438,35 @@ function tickBondok(now) {
   if (sami.pose === 'sleep') { bondok.pose = 'sleep'; return; }
   if (bondok.pose === 'sleep') bondok.pose = 'idle';
   const d = Math.hypot(sami.x - bondok.x, sami.y - bondok.y);
-  if (d > 80) { bondok.pose = 'idle'; walkTo(bondok, sami.x + 20, sami.y + 7); return; }
+  // يلحق بسامي عبر أثره: هدفه نقطة على مسار سامي نفسه تسبقه بنحو ٢٦px — لا يعبر إلا ما عبره سامي
+  if (d > 46 && engine.trail.length >= 2) {
+    let acc = 0, ti = 0, target = engine.trail[0];
+    for (let i = engine.trail.length - 1; i > 0; i--) {
+      const a = engine.trail[i], b = engine.trail[i - 1];
+      acc += Math.hypot(a.x - b.x, a.y - b.y);
+      if (acc >= 26) { target = b; ti = i - 1; break; }
+    }
+    bondok.pose = 'idle';
+    if (segClear(bondok.x, bondok.y, target.x, target.y)) { bondok.goTo(target.x, target.y); return; }
+    // المستقيم مقطوع: امشِ على نقاط الأثر نفسها من أقرب نقطة لبندق حتى الهدف
+    let j = 0, best = Infinity;
+    for (let i = 0; i <= ti; i++) {
+      const dd = Math.hypot(engine.trail[i].x - bondok.x, engine.trail[i].y - bondok.y);
+      if (dd < best) { best = dd; j = i; }
+    }
+    chainWalk(bondok, engine.trail.slice(j, ti + 1).concat([target]), () => {}); return;
+  }
+  if (d > 80) { bondok.pose = 'idle'; walkTo(bondok, sami.x + 20, sami.y + 7); return; } // احتياط عند غياب الأثر
   if (now > engine.wanderAt && !engine.active) {
     engine.wanderAt = now + 7000 + Math.random() * 8000;
     if (Math.random() < 0.35) bondok.pose = bondok.pose === 'sit' ? 'idle' : 'sit';
-    else walkTo(bondok, bondok.x + (Math.random() - 0.5) * 90, bondok.y + (Math.random() - 0.5) * 40);
+    else {
+      // هدف التجوال لا يقع داخل مبنى ولا على حافته (pointBlocked بهامش ١٦px)
+      for (let tries = 0; tries < 6; tries++) {
+        const wx = bondok.x + (Math.random() - 0.5) * 90, wy = bondok.y + (Math.random() - 0.5) * 40;
+        if (!pointBlocked(wx, wy)) { walkTo(bondok, wx, wy); break; }
+      }
+    }
   }
 }
 
