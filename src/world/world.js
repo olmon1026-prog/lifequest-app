@@ -179,12 +179,22 @@ export async function renderWorld(app, state) {
     }
 
     // إزاحة اللافتات مع الكاميرا
+    const actorRects = [sami, bondok].filter(a => a.visible && a.alpha > 0.3).map(a => {
+      const ax = offX + (a.x - engine.camXi) * scale, ay = offY + a.y * scale;
+      const ah = (sheets?.[a.name]?.frameHeight || 80) * a.scale * scale;
+      const aw = (sheets?.[a.name]?.frameWidth || 50) * a.scale * scale / 2;
+      return { l: ax - aw - 6, r: ax + aw + 6, t: ay - ah - 6, b: ay + 4 };
+    });
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
       const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة أفقيًا
       const hudTop = nt && nt.offsetTop ? nt.offsetTop : box.height - 56; // قياس فعلي لسطح شريط «المهمة التالية»
       const lh = el.offsetHeight || 34;
-      const topY = Math.max(4, Math.min(hudTop - lh - 2, ly - lh - 6)); // فوق نقطة الوجهة (لا تغطي سامي/بندق) وخارج منطقة HUD
+      let topY = Math.max(4, Math.min(hudTop - lh - 2, ly - lh - 6)); // فوق نقطة الوجهة وخارج منطقة HUD
+      for (const rc of actorRects) { // ولا تغطي سامي/بندق أينما وقفوا — تُرفع فوق رأس الممثل
+        if (clamped + 44 > rc.l && clamped - 44 < rc.r && topY + lh > rc.t && topY < rc.b)
+          topY = Math.max(4, rc.t - lh - 2);
+      }
       el.style.left = (clamped - 44) + 'px';
       el.style.top = topY + 'px';
       el.style.display = (lx < -120 || lx > box.width + 120) ? 'none' : '';
