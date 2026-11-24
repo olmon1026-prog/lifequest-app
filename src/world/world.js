@@ -214,7 +214,8 @@ export async function renderWorld(app, state) {
       el.style.display = (lx < -120 || lx > box.width + 120) ? 'none' : '';
     }
 
-    // شريحة نشاط سامي
+    // شريحة نشاط سامي — تُزاح تحت زر + إن غطّت قرص الشمس/القمر (نفس حساب renderer:
+    // قرص السماء يُرسم في وحدات العرض بشلل 0.08 عند x=195، y=140 نهارًا / 150 ليلًا)
     const chip = app.querySelector('#sami-doing');
     if (chip) {
       const txt = engine.resting ? 'يستريح في بيته' : (engine.active?.label || routineFor(new Date()).label);
@@ -222,6 +223,21 @@ export async function renderWorld(app, state) {
         chip.dataset.v = txt;
         chip.innerHTML = `<span style="background:rgba(14,34,56,.85);border:1px solid #33475C;border-radius:9px;
           padding:3px 9px;color:#CFF5EA;font-size:11px">سامي: ${txt}</span>`;
+      }
+      const isDay = phase === 'day';
+      const sunSx = offX + (195 - engine.camXi * 0.08) * scale;
+      const sunSy = offY + (isDay ? 140 : 150) * scale;
+      const sunR = (isDay ? 26 : 34) * scale;
+      const cw = chip.offsetWidth || 130, chh = chip.offsetHeight || 26;
+      const defL = box.width - 14 - cw, defT = 64;
+      const overSun = defL < sunSx + sunR + 6 && defL + cw > sunSx - sunR - 6 &&
+                      defT < sunSy + sunR + 6 && defT + chh > sunSy - sunR - 6;
+      const side = overSun ? 'l' : 'r';
+      if (chip.dataset.side !== side) {
+        chip.dataset.side = side;
+        chip.style.right = overSun ? 'auto' : '14px';
+        chip.style.left = overSun ? '14px' : 'auto';
+        chip.style.top = overSun ? '120px' : '64px'; // اليسار: تحت زر + لا فوقه
       }
     }
     (engine.workMs ??= []).push(Math.round((performance.now() - w0) * 100) / 100);
