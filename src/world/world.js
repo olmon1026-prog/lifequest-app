@@ -279,8 +279,15 @@ export async function renderWorld(app, state) {
         ? engine.doorTarget : engine.doorT + dd;
     }
 
+    // حالات مباني الوجهات (مهجور/جارٍ/مكتمل) لصبغها في العارض — تُحسب كل إطار لتلحق تغير المهام
+    const DEST_SPRITE = { beach: 'beachhut', workshop: 'workshop', house: 'sami', market: 'market' };
+    const bstate = {};
+    for (const d of DESTINATIONS) {
+      const sp = DEST_SPRITE[d.kind];
+      if (sp) bstate[sp] = destinationState(destinationProgress(state.items, d.id)).key;
+    }
     const env = {
-      phase, heroT: heroT(state.items), reduceMotion: reduce,
+      phase, heroT: heroT(state.items), reduceMotion: reduce, bstate,
       lamp: lighthouseLamp(storyNow, state.items, todayStr()), flicker: engine.flicker && now < engine.flicker,
       camX: engine.camXi, doorT: engine.doorT, viewOffY: offY,
       ...(view.manual ? { scale: vsc, viewW: box.width / vsc } : {}),

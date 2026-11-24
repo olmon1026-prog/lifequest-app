@@ -101,9 +101,12 @@ function farLayer(phase) {
 }
 
 // الطبقة القريبة: أرض + جرفان + قرية + طريق + شجرة + غابة
-function nearLayer(phase, front = false) {
-  const key = phase + (front ? ':front' : ':back');
+function nearLayer(phase, front = false, bstate = null) {
+  // bstate: حالات مباني الوجهات {sprite: 'locked'|'open'|'done'} — تدخل مفتاح الخبيئة لأنها تغيّر الرسم
+  const bsig = bstate ? Object.keys(bstate).sort().map(k => k + '=' + bstate[k]).join(',') : '';
+  const key = phase + (front ? ':front' : ':back') + (bsig ? '|' + bsig : '');
   if (nearCache.has(key)) return nearCache.get(key);
+  if (nearCache.size > 16) nearCache.clear(); // سقف ذاكرة: التوقيعات تتكاثر مع تقلب الحالات
   const P = PAL[phase];
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -149,9 +152,15 @@ function nearLayer(phase, front = false) {
     ctx.fillStyle = P.pathA; ctx.globalAlpha = 0.3;
     ctx.beginPath(); ctx.ellipse(b.x, b.y + 2, b.w / 2 + 10, 7, 0, 0, 7); ctx.fill();
     ctx.globalAlpha = 1;
+    // صبغة الحالة (مهجور/مكتمل) على بكسلات الأصل فقط — الشفافية حوله لا تتأثر؛ احتياطيًا بلا فلتر
+    const bst = bstate?.[b.sprite];
+    ctx.save();
+    if (bst === 'locked') ctx.filter = 'saturate(0.22) brightness(0.66)';
+    else if (bst === 'done') ctx.filter = 'saturate(1.12) brightness(1.07)';
     const h = drawBuilding(ctx, b, phase);
     if (h === null) fallback[b.sprite]?.(b);
-    if (b.smoke) {
+    ctx.restore();
+    if (b.smoke && bst !== 'locked') { // المهجور لا يدخّن
       const hh = h ?? b.w * 0.75;
       chimneys.push({ chimneyX: b.x + b.smoke[0] * b.w, chimneyY: b.y + b.smoke[1] * hh });
     }
@@ -204,7 +213,7 @@ function drawFrontStage(ctx, w, h, time, env) {
   const camXi = Math.round(camX); // التقاط الكاميرا لبكسل صحيح: لا اهتزاز عينات
 
   // المباني الأمامية (الصف الجنوبي): تغطي من يمر خلفها
-  const { cv: nearF } = nearLayer(phase, true);
+  const { cv: nearF } = nearLayer(phase, true, env.bstate);
   ctx.drawImage(nearF, camXi, 0, viewW, H, 0, 0, viewW, H);
 
   // باب بيت سامي المتحرك: تلاشٍ إلى نسخة «الباب المفتوح» المولّدة (احتياطي: رسم كودي)
@@ -226,7 +235,7 @@ function drawBackStage(ctx, w, h, time, env) {
   const P = PAL[phase];
   const camX = env.camX || 0;
   const { cv: far } = farLayer(phase);
-  const { cv: near, chimneys } = nearLayer(phase, false);
+  const { cv: near, chimneys } = nearLayer(phase, false, env.bstate);
   const s = env.scale || Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
   const viewW = env.viewW || VIEW_W; // وضع الاستكشاف يمرّر نافذة أوسع (تصغير) — الافتراضي يحافظ على سلوك التتبع
   ctx.save();
