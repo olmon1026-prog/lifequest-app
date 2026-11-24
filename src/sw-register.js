@@ -11,9 +11,11 @@ export function registerSW() {
       });
     });
   }).catch(() => {});
+  // أول تثبيت للـ SW لا يستدعي reload — الصفحة أصلاً أحدث نسخة من الشبكة؛ إعادة التحميل وقتها قد تضيّع إدخالًا جاريًا
+  const hadController = !!navigator.serviceWorker.controller;
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return;
+    if (refreshing || !hadController) return;
     refreshing = true;
     location.reload();
   });
