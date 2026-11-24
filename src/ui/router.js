@@ -32,6 +32,7 @@ function route() {
 
 function render(tab) {
   const app = document.getElementById('app');
+  if (tab !== 'world') delete document.body.dataset.worldPhase; // خارج العالم الشريط فاتح دائمًا
   app.scrollTop = 0;
   routes[tab](app, store.state);
 }

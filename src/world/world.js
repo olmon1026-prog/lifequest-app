@@ -34,6 +34,7 @@ const ACTIVITY_LABEL = { health: 'يتمرن على الشاطئ', learning: 'ي
 export async function renderWorld(app, state) {
   setMuted(state.settings.sound === false);
   const phase = dayPhase(new Date());
+  document.body.dataset.worldPhase = phase; // الشريط السفلي يتبع وقت المشهد
   app.innerHTML = `
     <div style="position:relative;height:100%;background:#0B1838;overflow:hidden">
       <canvas id="world-canvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>

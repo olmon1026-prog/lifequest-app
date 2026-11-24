@@ -46,6 +46,20 @@ h1{font-size:22px} h2{font-size:17px} h3{font-size:15px}
 .row .ic{color:var(--sub)}
 #sheet-root .btn .ic{vertical-align:-3px}
 
+/* شريط العالم يتبع وقت المشهد: غامق ليلًا وفجرًا وغسقًا، فاتح نهارًا */
+body[data-world-phase="night"] #dock,
+body[data-world-phase="dusk"] #dock,
+body[data-world-phase="dawn"] #dock{
+  background:var(--panel); border-color:transparent;
+  box-shadow:0 6px 24px rgba(11,24,56,.35);
+}
+body[data-world-phase="night"] #dock a,
+body[data-world-phase="dusk"] #dock a,
+body[data-world-phase="dawn"] #dock a{ color:#9FB4C4 }
+body[data-world-phase="night"] #dock a.active,
+body[data-world-phase="dusk"] #dock a.active,
+body[data-world-phase="dawn"] #dock a.active{ background:transparent; color:var(--amber) }
+
 /* شريط علوي داخل الشاشات */
 .topbar{
   display:flex; align-items:center; gap:12px;
