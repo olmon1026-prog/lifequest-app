@@ -46,9 +46,9 @@ export class Actor {
     ctx.save(); ctx.globalAlpha = this.alpha;
     const hopY = this.hop > 0 ? Math.abs(Math.sin(this.hop / 90)) * 13 : 0;
     const y = this.y - hopY;
-    // ظل خفيف
+    // ظل خفيف منزاح يسارًا-لأسفل قليلًا (الضوء أعلى-يمين — قاعدة layout.js)
     ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.beginPath(); ctx.ellipse(this.x, this.y + 1, 12 * this.scale / 2, 3.5, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(this.x - 2, this.y + 2, 12 * this.scale / 2, 3.5, 0, 0, 7); ctx.fill();
     if (this.moving) drawFrame(ctx, sheet, Math.floor(this.frame), this.x, y, this.scale, this.facing);
     else drawPose(ctx, sheet, this.pose, 0, this.x, y, this.scale, this.facing, time);
     ctx.restore();

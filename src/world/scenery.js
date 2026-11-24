@@ -165,8 +165,12 @@ export function house(ctx, P, o, phase) {
 
   // سقف جملوني واحد الميل لكل القرية + خطوط بلاط + حافة مضيئة
   poly(ctx, [[L - 8, T - 3], [x, T - 3 - roofH], [R + 8, T - 3]], P.roofA);
-  ctx.strokeStyle = P.roofEave; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(L - 8, T - 3); ctx.lineTo(x, T - 3 - roofH); ctx.lineTo(R + 8, T - 3); ctx.stroke();
+  // ميلان السقف بإضاءة اتجاهية: الميل الأيمن مضيء (roofC) والأيسر بظل الأفاريز — الضوء أعلى-يمين
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = P.roofEave;
+  ctx.beginPath(); ctx.moveTo(L - 8, T - 3); ctx.lineTo(x, T - 3 - roofH); ctx.stroke();
+  ctx.strokeStyle = P.roofC;
+  ctx.beginPath(); ctx.moveTo(x, T - 3 - roofH); ctx.lineTo(R + 8, T - 3); ctx.stroke();
   ctx.strokeStyle = P.roofB; ctx.lineWidth = 2;
   for (let i = 1; i <= 3; i++) {
     const ry = T - 3 - (roofH * i) / 4, rw = (w + 16) * (1 - i / 4);
@@ -277,11 +281,11 @@ export function lighthouse(ctx, P, phase, lamp) {
   poly(ctx, [[x - 30, baseY + 6], [x - 22, baseY - 6], [x + 24, baseY - 6], [x + 32, baseY + 6]], P.rockB);
   ctx.fillStyle = P.rockHi; ctx.fillRect(x - 22, baseY - 8, 46, 3);
 
-  // جسم البرج المدبب بحد أغمق من الجدار (منظور واحد، إضاءة من اليسار)
+  // جسم البرج المدبب بحد أغمق من الجدار (منظور واحد، إضاءة من اليمين — قاعدة layout.js: الضوء أعلى-يمين)
   poly(ctx, [[x - wB / 2, baseY - 6], [x - wT / 2, baseY - 6 - h], [x + wT / 2, baseY - 6 - h], [x + wB / 2, baseY - 6]], P.wallC);
   ctx.fillStyle = 'rgba(0,0,0,.16)';
-  poly(ctx, [[x + wT / 2 - 5, baseY - 6 - h], [x + wT / 2, baseY - 6 - h], [x + wB / 2, baseY - 6], [x + wB / 2 - 8, baseY - 6]], ctx.fillStyle);
-  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x - wB / 2 + 2, baseY - 8 - h + 4, 3, h - 2);
+  poly(ctx, [[x - wT / 2 + 5, baseY - 6 - h], [x - wT / 2, baseY - 6 - h], [x - wB / 2, baseY - 6], [x - wB / 2 + 8, baseY - 6]], ctx.fillStyle);
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x + wB / 2 - 5, baseY - 8 - h + 4, 3, h - 2);
   dither(ctx, x - wB / 2, baseY - 6 - h, wB, h, 'rgba(0,0,0,.10)', 0.25);
 
   // حزامان أحمران يتبعان التدبب
