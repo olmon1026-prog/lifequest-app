@@ -62,6 +62,14 @@ export function fmtDateAr(s) {
 export function arNum(n) {
   return String(n).replace(/[0-9]/g, c => '٠١٢٣٤٥٦٧٨٩'[+c]);
 }
+// «HH:MM» → «٥:٠٠ ص» / «٩:٣٠ م» — لعرض وقت الاستحقاق في سطر المهمة
+export function fmtTimeAr(t) {
+  if (!isValidTime(t) || !t) return '';
+  let [h, m] = t.split(':').map(Number);
+  const suf = h < 12 ? 'ص' : 'م';
+  h = h % 12 || 12;
+  return `${arNum(h)}:${arNum(String(m).padStart(2, '0'))} ${suf}`;
+}
 
 // فترة الهدف المخزنة {kind,key} من نوعه — المفتاح يطابق goals.js: سنة YYYY / شهر YYYY-MM / أسبوع يوم بدايته
 export function goalPeriod(type, today, weekStart = 6) {

@@ -1,6 +1,6 @@
 // اختبارات المنطق النقي بـ Node (D-014)
 import assert from 'node:assert/strict';
-import { todayStr, addDays, weekStartOf, isValidDate, quickDate, toStr, goalPeriod } from '../src/core/dates.js';
+import { todayStr, addDays, weekStartOf, isValidDate, quickDate, toStr, goalPeriod, fmtTimeAr } from '../src/core/dates.js';
 import { buildChildrenMap, progressOf, deriveCompletion, hasCycle } from '../src/core/progress.js';
 import { totalXP, levelFor, levelProgress, xpForComplete, DAILY_CAP } from '../src/core/xp.js';
 import { currentStreak, bestStreak } from '../src/core/streak.js';
@@ -270,6 +270,15 @@ t('goalPeriod: مفتاح الفترة يطابق فلتر شجرة الأهدا
   assert.deepEqual(goalPeriod('goal_week', '2026-11-24', 1), { kind: 'week', key: weekStartOf('2026-11-24', 1) });
   assert.equal(goalPeriod('task', '2026-11-24'), null);
   assert.equal(goalPeriod('subtask', '2026-11-24'), null);
+});
+
+t('fmtTimeAr: وقت الاستحقاق بصيغة عربية ١٢ ساعة', () => {
+  assert.equal(fmtTimeAr('05:00'), '٥:٠٠ ص');
+  assert.equal(fmtTimeAr('21:30'), '٩:٣٠ م');
+  assert.equal(fmtTimeAr('12:00'), '١٢:٠٠ م');
+  assert.equal(fmtTimeAr('00:15'), '١٢:١٥ ص');
+  assert.equal(fmtTimeAr(null), '');
+  assert.equal(fmtTimeAr('99:99'), '');
 });
 
 console.log(`\n${passed} اختبارًا نجح كلها ✅`);

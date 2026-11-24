@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { store } from '../store.js';
 import { topbarHTML } from './topbar.js';
-import { todayStr, addDays, fmtDateAr, arNum, weekStartOf } from '../core/dates.js';
+import { todayStr, addDays, fmtDateAr, fmtTimeAr, arNum, weekStartOf } from '../core/dates.js';
 import { completeItem, uncompleteItem } from '../db/repo.js';
 import { openAddSheet, openEditSheet, toast } from './sheet.js';
 import { buildChildrenMap, progressOf } from '../core/progress.js';
@@ -117,7 +117,7 @@ function taskRow(it, state) {
     <button class="check" aria-label="إنجاز">${it.status === 'done' ? '✓' : ''}</button>
     <div class="body">
       <div class="title">${esc(it.title)}</div>
-      <div class="meta">${[due && due !== today ? (due < today ? 'متأخر · ' : '') + fmtDateAr(due) : '', parent ? esc(parent.title) : ''].filter(Boolean).join(' · ')}</div>
+      <div class="meta">${[due && due !== today ? (due < today ? 'متأخر · ' : '') + fmtDateAr(due) : '', it.due?.time ? fmtTimeAr(it.due.time) : '', parent ? esc(parent.title) : ''].filter(Boolean).join(' · ')}</div>
     </div>`;
   el.querySelector('.check').onclick = async () => {
     if (it.status === 'done') {
