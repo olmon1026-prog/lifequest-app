@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1838">
+<title>LifeQuest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="src/styles/base.css">
+</head>
+<body>
+<div id="app"></div>
+<nav id="dock" aria-label="التبويبات">
+  <a href="#/world" data-tab="world"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19l5-9 4 6 3-4 6 7z"/></svg>العالم</a>
+  <a href="#/today" data-tab="today"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 16 0 8 8 0 1 0-16 0M8.5 12l2.5 2.5 4.5-5"/></svg>اليوم</a>
+  <a href="#/goals" data-tab="goals"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4M6 5h11l-2 4 2 4H6"/></svg>الأهداف</a>
+  <a href="#/more" data-tab="more"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>المزيد</a>
+</nav>
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+<script>const __D = Date;
+class FixedDate extends __D { constructor(...a){ super(...(a.length ? a : ['2026-11-24T18:30:00'])); } static now(){ return new __D('2026-11-24T18:30:00').getTime(); } }
+FixedDate.parse = __D.parse; FixedDate.UTC = __D.UTC; Date = FixedDate;</script>
+<script type="module" src="src/main.js"></script>
+<script type="module">
+import { store } from './src/store.js';
+import { addItem, completeItem } from './src/db/repo.js';
+import { todayStr, addDays, goalPeriod } from './src/core/dates.js';
+import { uuid } from './src/core/ids.js';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const ready = () => new Promise(r => { const i = setInterval(() => { if (store.state.ready) { clearInterval(i); r(); } }, 80); });
+const add = (f) => addItem(f).catch(() => store.state.items[store.state.items.length - 1]);
+await ready();
+const today = todayStr();
+const ws = store.state.settings.weekStart ?? 6;
+const gy = await add({ type: 'goal_year', title: 'أقرأ ٢٤ كتاب السنة دي', priority: 2, period: goalPeriod('goal_year', today, ws) });
+const gm = await add({ type: 'goal_month', title: 'أخلص كتابين في نوفمبر', priority: 2, parentId: gy.id, period: goalPeriod('goal_month', today, ws) });
+const gw = await add({ type: 'goal_week', title: 'أقرا ٥٠ صفحة', priority: 1, parentId: gm.id, period: goalPeriod('goal_week', today, ws) });
+const pr = await add({ type: 'project', title: 'تعلّم الإنجليزي', priority: 2, parentId: gw.id });
+const st = await add({ type: 'stage', title: 'مستوى A2', priority: 2, parentId: pr.id });
+await add({ type: 'task', title: 'حلقة أنكي ٢٠ دقيقة', priority: 2, parentId: st.id, due: { date: today } });
+await add({ type: 'task', title: 'مكالمة ماما', priority: 3, due: { date: addDays(today, -1) } });
+const gym = await add({ type: 'task', title: 'جيم ٤٥ دقيقة', priority: 2, area: 'health', due: { date: today, time: '18:00' } });
+await add({ type: 'subtask', title: 'تسخين ١٠ دقايق', priority: 1, parentId: gym.id });
+const water = await add({ type: 'task', title: 'شرب ٢ لتر ميه', priority: 1, area: 'health', due: { date: today } });
+water.status = 'done'; water.completedAt = Date.now();
+store.state.events.push({ id: uuid(), ts: Date.now(), day: today, kind: 'complete', itemId: water.id, itemType: 'task', xp: 10 });
+await add({ type: 'task', title: 'تسليم التقرير', priority: 3, area: 'work', due: { date: addDays(today, 3) } });
+await add({ type: 'task', title: 'ترتيب الدولاب', priority: 1, area: 'home' });
+for (let d = 1; d <= 4; d++) {
+  store.state.events.push({ id: uuid(), ts: Date.now() - d * 864e5, day: addDays(today, -d), kind: 'complete', itemId: gym.id, itemType: 'task', xp: 20 });
+}
+let tab = (location.hash.replace('#/', '') || 'today');
+const wantSheet = tab === 'sheet';
+if (!['today', 'goals', 'more', 'world'].includes(tab)) { tab = 'today'; location.hash = '#/today'; }
+await sleep(1500);
+if (wantSheet) { const f = document.querySelector('#fab'); if (f) f.click(); await sleep(400); }
+document.title = 'SEED-OK items=' + store.state.items.length + ' tab=' + location.hash;
+</script></body>
+</html>

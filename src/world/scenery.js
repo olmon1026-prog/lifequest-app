@@ -86,16 +86,26 @@ export function poly(ctx, pts, color) {
   ctx.closePath(); ctx.fill();
 }
 
-// جبال بعيدة مسننة بحواف مضيئة
+// دمج لونين hex بنسبة t نحو الثاني (للمنظور الجوي)
+export function mix(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(((pa >> 16) & 255) * (1 - t) + ((pb >> 16) & 255) * t);
+  const g = Math.round(((pa >> 8) & 255) * (1 - t) + ((pb >> 8) & 255) * t);
+  const bl = Math.round((pa & 255) * (1 - t) + (pb & 255) * t);
+  return `#${((r << 16) | (g << 8) | bl).toString(16).padStart(6, '0')}`;
+}
+
+// جبال بعيدة مسننة بحواف مضيئة — منظور جوي رقمي: كل مستوى يُمزج نحو لون ضباب الأفق
+// (pixeli قاعدة ٨: مزج ٠/٢٥/٥٠٪ لكل مستوى — تطبيقنا: بعيد ٥٠٪ نحو skyLow، قريب ٢٥٪)
 export function mountains(ctx, P, layer = 0, seed = 5) {
   const rnd = rng(seed + layer * 31);
   const base = SKY_H, amp = layer ? 52 : 76, step = layer ? 30 : 40;
-  poly(ctx, [[-10, base]], P.mountFar); // يُستبدل بالمسار الكامل
   const pts = [[-10, base]];
   let x = -10;
   while (x < W + 10) { pts.push([x, base - 16 - rnd() * amp]); x += step * (0.6 + rnd() * 0.8); }
   pts.push([W + 10, base]);
-  poly(ctx, pts, layer ? P.mountNear : P.mountFar);
+  const col = mix(layer ? P.mountNear : P.mountFar, P.skyLow, layer ? 0.25 : 0.5);
+  poly(ctx, pts, col);
   ctx.fillStyle = layer ? 'rgba(207,245,234,.10)' : 'rgba(207,245,234,.06)';
   for (let i = 1; i < pts.length - 1; i++) ctx.fillRect(pts[i][0] - 1, pts[i][1] - 2, 3, 2);
 }
