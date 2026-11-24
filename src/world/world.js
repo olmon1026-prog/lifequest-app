@@ -229,15 +229,21 @@ export async function renderWorld(app, state) {
       const sunSy = offY + (isDay ? 140 : 150) * scale;
       const sunR = (isDay ? 26 : 34) * scale;
       const cw = chip.offsetWidth || 130, chh = chip.offsetHeight || 26;
-      const defL = box.width - 14 - cw, defT = 64;
-      const overSun = defL < sunSx + sunR + 6 && defL + cw > sunSx - sunR - 6 &&
-                      defT < sunSy + sunR + 6 && defT + chh > sunSy - sunR - 6;
-      const side = overSun ? 'l' : 'r';
-      if (chip.dataset.side !== side) {
-        chip.dataset.side = side;
-        chip.style.right = overSun ? 'auto' : '14px';
-        chip.style.left = overSun ? '14px' : 'auto';
-        chip.style.top = overSun ? '120px' : '64px'; // اليسار: تحت زر + لا فوقه
+      const hits = (l, t) => l < sunSx + sunR + 6 && l + cw > sunSx - sunR - 6 &&
+                             t < sunSy + sunR + 6 && t + chh > sunSy - sunR - 6;
+      // المرشحون بالترتيب: يمين (افتراضي)، يسار تحت زر +، ثم تحت القرص تمامًا يمينًا —
+      // لا يكفي تبديل الجانب إن كان البديل نفسه يتقاطع (ليل ٣٦٠: القمر واسع بوسط الأعلى)
+      let pos = { side: 'r', top: 64 };
+      if (hits(box.width - 14 - cw, 64)) {
+        pos = !hits(14, 120) ? { side: 'l', top: 120 }
+                             : { side: 'r', top: Math.round(sunSy + sunR + 8) };
+      }
+      const key = pos.side + pos.top;
+      if (chip.dataset.pos !== key) {
+        chip.dataset.pos = key;
+        chip.style.right = pos.side === 'r' ? '14px' : 'auto';
+        chip.style.left = pos.side === 'l' ? '14px' : 'auto';
+        chip.style.top = pos.top + 'px';
       }
     }
     (engine.workMs ??= []).push(Math.round((performance.now() - w0) * 100) / 100);
