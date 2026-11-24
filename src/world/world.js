@@ -116,7 +116,7 @@ export async function renderWorld(app, state) {
   const dg = app.querySelector('#digest');
   if (engine.digest.length) {
     dg.innerHTML = `<div style="background:rgba(14,34,56,.88);border:2px solid #7FE0CF;border-radius:10px;
-      padding:5px 10px;color:#CFF5EA;font-size:11px">ما حدث اليوم: <b style="color:#FFC857">${arNum(engine.digest.length)}</b> إنجاز إضافي ✨</div>`;
+      padding:5px 10px;color:#CFF5EA;font-size:11px">ما حدث اليوم: <b style="color:#FFC857">${arNum(engine.digest.length)}</b> إنجاز إضافي</div>`;
   } else dg.innerHTML = '';
 
   const story = loadStory();
