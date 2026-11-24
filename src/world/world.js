@@ -52,7 +52,7 @@ export async function renderWorld(app, state) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = box.width * dpr; canvas.height = box.height * dpr;
   ctx.scale(dpr, dpr);
-  const scale = Math.min(box.width / VIEW_W, box.height / VIEW_H);
+  const scale = Math.max(box.width / VIEW_W, box.height / VIEW_H); // تغطية لا احتواء
   const offX = (box.width - VIEW_W * scale) / 2, offY = (box.height - VIEW_H * scale) / 2;
 
   if (!sheets) {
@@ -166,9 +166,10 @@ export async function renderWorld(app, state) {
     // إزاحة اللافتات مع الكاميرا
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
-      el.style.left = (lx - 44) + 'px';
+      const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة
+      el.style.left = (clamped - 44) + 'px';
       el.style.top = (ly + 8) + 'px';
-      el.style.display = (lx < -60 || lx > box.width + 60) ? 'none' : '';
+      el.style.display = (lx < -120 || lx > box.width + 120) ? 'none' : '';
     }
 
     // شريحة نشاط سامي

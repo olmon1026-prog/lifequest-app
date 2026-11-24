@@ -179,7 +179,7 @@ function drawFrontStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const night = phase === 'night';
   const still = env.reduceMotion;
-  const s = Math.min(w / VIEW_W, h / VIEW_H);
+  const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
   ctx.save();
   ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round((h - VIEW_H * s) / 2));
   ctx.scale(s, s);
@@ -211,7 +211,7 @@ function drawBackStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const { cv: far } = farLayer(phase);
   const { cv: near, chimneys } = nearLayer(phase, false);
-  const s = Math.min(w / VIEW_W, h / VIEW_H);
+  const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
   ctx.save();
   ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round((h - VIEW_H * s) / 2));
   ctx.scale(s, s);
