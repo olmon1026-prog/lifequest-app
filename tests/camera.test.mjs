@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { W, H, cameraFor } from '../src/world/layout.js';
-import { coverScale, followOffX, followCenterX, fitZoomFor, clampView,
+import { coverScale, followOffX, followCenterX, followView, fitZoomFor, clampView,
          pinchView, worldToScreen, screenToWorld, HUD_PAD } from '../src/world/camera.js';
 
 const SIZES = [[320,568],[360,640],[360,740],[390,844],[412,915],[768,1024],[1024,768],[1280,720],[1920,1080],[568,320]];
@@ -60,5 +60,21 @@ for (const [bw, bh] of SIZES) {
   const sx = followOffX(bw, s) + (30 - cameraFor(30)) * s;  // سامي عند بداية مشهد الوصول x=30
   if (process.env.STRICT_EDGE) assert.ok(sx >= 0, `سامي خارج الشاشة x=${sx.toFixed(1)}`);
   else if (sx < 0) console.warn(`WARN: بداية الوصول خارج الشاشة في التتبع (x=${sx.toFixed(1)}px)`); }
+
+// ٧) followView: سقف ٣٠٠px عالم رأسيًا في العرض الأفقي، والوضع الرأسي بلا تغيير
+{ const fv = followView(844, 390);
+  assert.ok(Math.abs(fv.scale - 1.3) < 1e-9, `مقياس أفقي ${fv.scale}`);
+  assert.ok(Math.abs(fv.viewW - 844 / 1.3) < 1e-9 && fv.viewW > 390, `نافذة أفقية ${fv.viewW}`);
+  assert.ok(390 / fv.scale >= 300 - 1e-9); // الارتفاع الظاهر ≥ ٣٠٠px عالم
+  assert.ok(fv.viewW <= W); }              // النافذة لا تتجاوز العالم
+{ const fv = followView(2560, 800); // فائق الاتساع: الحد الأدنى bw/W يمنع نافذة أوسع من العالم
+  assert.ok(Math.abs(fv.viewW - W) < 1e-9, `نافذة ${fv.viewW}`); }
+{ const fv = followView(390, 844);         // نفس أبعاد هاتف عبدو الرأسية
+  assert.ok(Math.abs(fv.scale - coverScale(390, 844)) < 1e-9 && fv.viewW === 390, 'الرأسي تغيّر!'); }
+for (const [bw, bh] of SIZES) {            // لا قصّ رأسيًا أبدًا ولا نافذة أوسع من العالم
+  const fv = followView(bw, bh);
+  assert.ok(bh / fv.scale >= 300 - 1e-9 || Math.abs(fv.viewW - W) < 1e-9, `${bw}x${bh} ارتفاع ظاهر ${(bh / fv.scale).toFixed(0)}`);
+  assert.ok(fv.viewW <= W + 1e-9, `${bw}x${bh} نافذة ${fv.viewW}`);
+  assert.ok(bw / fv.scale <= fv.viewW + 1e-9); } // لا حواف فارغة أفقيًا
 
 console.log('✓ camera.test');

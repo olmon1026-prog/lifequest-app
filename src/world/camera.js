@@ -3,6 +3,15 @@ import { W, H, VIEW_W, VIEW_H } from './layout.js';
 export const HUD_PAD = 64; // الشريط العلوي + السفلي (نفس usableTop/usableBottom في viewOffY)
 
 export const coverScale = (bw, bh) => Math.max(bw / VIEW_W, bh / VIEW_H);
+
+// مقياس التتبع ونافذته: سقف ٣٠٠px عالم رأسيًا — بلا سقف يصبح العرض الأفقي شريطًا
+// مقصوصًا (١٨٠px على ٨٤٤×٣٩٠) ويختفي بندق تحت الشريط السفلي. النافذة الأعرض من
+// VIEW_W تُرسم بمسار العرض العام (نفس مسار الخريطة). الوضع الرأسي لا يتغير أبدًا.
+export function followView(bw, bh) {
+  // bw/W: حد أدنى للمقياس حتى لا تتجاوز النافذة عرض العالم (شاشات فائقة الاتساع)
+  const scale = Math.max(Math.min(coverScale(bw, bh), bh / 300), bw / W);
+  return { scale, viewW: Math.max(VIEW_W, bw / scale) };
+}
 export const followOffX = (bw, scale) => (bw - VIEW_W * scale) / 2;
 // مركز نافذة التتبع بالعالم = camXi + VIEW_W/2 دائمًا (حتى لو offX سالب)
 export const followCenterX = (camXi) => camXi + VIEW_W / 2;

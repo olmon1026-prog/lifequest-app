@@ -12,7 +12,7 @@ import { sounds, unlockAudio, setMuted, vibrate } from './sound.js';
 import { openAddSheet } from '../ui/sheet.js';
 import { arNum, todayStr } from '../core/dates.js';
 import { showDestinationCard } from './destcard.js';
-import { coverScale, followOffX, followCenterX, fitZoomFor, clampView, pinchView } from './camera.js';
+import { coverScale, followOffX, followView, fitZoomFor, clampView, pinchView } from './camera.js';
 
 let raf = null, sheets = null;
 const sami = new Actor('sami', SPOTS.square.x, SPOTS.square.y, 0.5);   // ~٥٠px ≈ قامة الباب
@@ -129,9 +129,12 @@ export async function renderWorld(app, state) {
   const enterManual = () => {
     const v = engine.view;
     if (v.manual) return;
-    v.manual = true; v.anim = false; v.returning = false; v.zoom = 1;
-    v.cx = followCenterX(engine.camXi); // مركز نافذة التتبع (offX السالب على الهواتف الطويلة بيخلّي «نصف العرض الظاهر» غلط)
-    v.cy = (box.height / 2 - (engine.offYS ?? 0)) / scale;
+    // الدخول لليدوي من نفس مشهد التتبع بلا قفزة: في العرض الأفقي التتبع أصغر من مقياس التغطية
+    const fv = followView(box.width, box.height);
+    v.manual = true; v.anim = false; v.returning = false;
+    v.zoom = Math.min(1, fv.scale / scale);
+    v.cx = engine.camXi + fv.viewW / 2;
+    v.cy = (box.height / 2 - (engine.offYS ?? 0)) / fv.scale;
     syncBtns();
   };
   mapbtn.onclick = () => {
@@ -146,9 +149,11 @@ export async function renderWorld(app, state) {
     const v = engine.view;
     if (!v.manual || v.returning) return;
     // رجوع متحرّك: يكمّل يدوي لحد ما الزوم يوصل ١ ثم يسلّم للتتبع من نفس الموضع
-    v.anim = true; v.returning = true; v.tZoom = 1;
-    v.tcx = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x) + VIEW_W / 2;
-    v.tcy = (box.height / 2 - viewOffY(box.height, scale, sami.y)) / scale;
+    const fv = followView(box.width, box.height);
+    v.anim = true; v.returning = true;
+    v.tZoom = Math.min(1, fv.scale / scale);
+    v.tcx = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x, fv.viewW) + fv.viewW / 2;
+    v.tcy = (box.height / 2 - viewOffY(box.height, fv.scale, sami.y)) / fv.scale;
   };
   const pointers = new Map();
   let lastPinch = 0;
@@ -252,7 +257,7 @@ export async function renderWorld(app, state) {
       backbtn.style.background = sceneOn ? '#FFC857' : '#0E2238';
       backbtn.style.color = sceneOn ? '#0E2238' : '#FFC857';
     }
-    let vsc = scale, vox = offX, offY;
+    let vsc = scale, vox = offX, offY, wideFollow = false;
     if (view.manual) {
       if (view.anim) {
         const k = Math.min(1, dt / 220);
@@ -263,7 +268,8 @@ export async function renderWorld(app, state) {
           view.zoom = view.tZoom; view.anim = false;
           if (view.returning) { // اكتمل الزوم: سلّم للتتبع بلا قفزة
             view.returning = false; view.manual = false;
-            engine.camX = Math.max(0, Math.min(W - VIEW_W, view.cx - VIEW_W / 2));
+            const fv = followView(box.width, box.height);
+            engine.camX = Math.max(0, Math.min(W - fv.viewW, view.cx - fv.viewW / 2));
             syncBtns();
           }
         }
@@ -277,13 +283,19 @@ export async function renderWorld(app, state) {
       engine.offYS = offY; // استئناف التتبع لاحقًا من نفس الموضع بلا قفزة
     } else {
       // تُلتقط لبكسل صحيح (قاعدة فن البكسل: لا عينات كسرية)
-      const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
+      // عرض أفقي شديد (تدوير الهاتف): followView يسقف المقياس عند ٣٠٠px عالم رأسيًا —
+      // بلا سقف يصبح المشهد شريطًا مقصوصًا ويختفي بندق تحت الشريط السفلي. النافذة
+      // الأعرض من VIEW_W تُرسم بمسار العرض العام (نفس مسار الخريطة) — بلا حواف فارغة.
+      const fv = followView(box.width, box.height);
+      wideFollow = fv.viewW > VIEW_W + 0.5;
+      const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x, fv.viewW);
       engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
       engine.camXi = Math.round(engine.camX);
-      const offYTarget = viewOffY(box.height, scale, sami.y);
+      const offYTarget = viewOffY(box.height, fv.scale, sami.y);
       if (engine.offYS == null) engine.offYS = offYTarget;
       engine.offYS += (offYTarget - engine.offYS) * Math.min(1, dt / 300);
       offY = Math.round(engine.offYS);
+      if (wideFollow) { vsc = fv.scale; vox = 0; }
     }
 
     // حركة الباب السلسة نحو هدفها
@@ -304,7 +316,7 @@ export async function renderWorld(app, state) {
       phase, heroT: heroT(state.items), reduceMotion: reduce, bstate,
       lamp: lighthouseLamp(storyNow, state.items, todayStr()), flicker: engine.flicker && now < engine.flicker,
       camX: engine.camXi, doorT: engine.doorT, viewOffY: offY,
-      ...(view.manual ? { scale: vsc, viewW: box.width / vsc } : {}),
+      ...(view.manual || wideFollow ? { scale: vsc, viewW: box.width / vsc } : {}),
     };
     if (view.manual) { ctx.fillStyle = '#0B1838'; ctx.fillRect(0, 0, box.width, box.height); } // خلفية داكنة خلف العالم المصغّر
     drawScene(ctx, box.width, box.height, now, env, 'back');
