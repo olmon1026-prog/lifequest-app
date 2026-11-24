@@ -10,7 +10,8 @@ export class Actor {
     this.pose = 'idle';   // idle|walk|sit|sleep|read|work
     this.facing = 'left';
     this.frame = 0;
-    this.speed = 0.035;   // بكسل/م.ث — مطابق لخطوة السبرايت: انتشار القدمين ~٩٦px/دورة × مقياس ٠٫٥ ≈ ٤٨px/١٣٦٠م.ث (لا انزلاق قدم)
+    this.speed = 0.0382;  // بكسل/م.ث — مقاس من السبرايت نفسه: أقصى اتساع قدمين ٥٢px (خطوة)،
+    // الدورة ١٦ إطارًا = خطوتان = ١٠٤px × مقياس ٠٫٥ = ٥٢px/١٣٦٠م.ث ≈ ٠٫٠٣٨٢ (تعليق سابق ادعى ٩٦px بلا قياس)
     this.hop = 0;
     this.onArrive = null;
     this.visible = true;   // false داخل البيت
