@@ -10,7 +10,7 @@ export class Actor {
     this.pose = 'idle';   // idle|walk|sit|sleep|read|work
     this.facing = 'left';
     this.frame = 0;
-    this.speed = 0.055;   // بكسل/مللي ثانية تقريبًا
+    this.speed = 0.035;   // بكسل/م.ث — مطابق لخطوة السبرايت: انتشار القدمين ~٩٦px/دورة × مقياس ٠٫٥ ≈ ٤٨px/١٣٦٠م.ث (لا انزلاق قدم)
     this.hop = 0;
     this.onArrive = null;
     this.visible = true;   // false داخل البيت
@@ -27,7 +27,7 @@ export class Actor {
       const step = Math.min(d, this.speed * dt);
       this.x += dx / d * step; this.y += dy / d * step;
       this.facing = dx < 0 ? 'left' : 'right';
-      this.frame += dt / 95;
+      this.frame += dt / 85;  // ٨٥م.ث/إطار ضمن نطاق ٨٠–١٢٥ لدورات المشي (LibreSprite)
       if (!this.moving && this.onArrive) { const f = this.onArrive; this.onArrive = null; f(); }
     } else {
       this.frame = 0;

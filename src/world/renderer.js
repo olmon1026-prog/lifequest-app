@@ -204,7 +204,7 @@ function drawBackStage(ctx, w, h, time, env) {
   const still = env.reduceMotion;
 
   // قمر/شمس حيّان بشلل خفيف 0.08: يبقيان داخل الكادر عبر كامل مدى الكاميرا (كانا يخرجان كليًا بشلل 0.35)
-  const mpx = 300 - camX * 0.08, mpy = day ? 120 : 130, mpr = day ? 26 : MOON.r; // موضع يمين-وسط خالٍ من الشريط العلوي وزر الإضافة
+  const mpx = 195 - camX * 0.08, mpy = day ? 140 : 150, mpr = day ? 26 : MOON.r; // وسط-أعلى: خالٍ من الشريط العلوي وزر + وشارة الفصل
   const glow = ctx.createRadialGradient(mpx, mpy, mpr * 0.5, mpx, mpy, mpr * 2.8);
   glow.addColorStop(0, day ? 'rgba(255,246,220,.5)' : 'rgba(207,245,234,.4)');
   glow.addColorStop(1, 'rgba(207,245,234,0)');

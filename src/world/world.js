@@ -16,7 +16,7 @@ import { showDestinationCard } from './destcard.js';
 let raf = null, sheets = null;
 const sami = new Actor('sami', SPOTS.square.x, SPOTS.square.y, 0.5);   // ~٥٠px ≈ قامة الباب
 const bondok = new Actor('bondok', SPOTS.square.x + 30, SPOTS.square.y + 12, 0.38);
-bondok.speed = 0.075;
+bondok.speed = 0.048; // مطابق لخطوته: دورة ٨ إطارات × ٨٥م.ث ≈ ٣٦px
 
 // حالة المحرك عبر إعادة الرسم
 const engine = {
@@ -32,6 +32,7 @@ const ACTIVITY_BY_DEST = { health: 'work', learning: 'read', work: 'work', home:
 const ACTIVITY_LABEL = { health: 'يتمرن على الشاطئ', learning: 'يقرأ عند المنارة', work: 'يعمل في الورشة', home: 'يرتّب بيته', money: 'يجهّز بضاعة السوق', square: 'في الساحة' };
 
 export async function renderWorld(app, state) {
+  window.__world = { sami, bondok, engine }; // مقبض اختبار حركي (CDP)
   setMuted(state.settings.sound === false);
   const phase = dayPhase(new Date());
   document.body.dataset.worldPhase = phase; // الشريط السفلي يتبع وقت المشهد
@@ -171,7 +172,7 @@ export async function renderWorld(app, state) {
       const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة أفقيًا
       const hudTop = nt && nt.offsetTop ? nt.offsetTop : box.height - 56; // قياس فعلي لسطح شريط «المهمة التالية»
       const lh = el.offsetHeight || 34;
-      const topY = Math.max(4, Math.min(hudTop - lh - 2, ly + 8)); // ورأسيًا فوق منطقة HUD دائمًا
+      const topY = Math.max(4, Math.min(hudTop - lh - 2, ly - lh - 6)); // فوق نقطة الوجهة (لا تغطي سامي/بندق) وخارج منطقة HUD
       el.style.left = (clamped - 44) + 'px';
       el.style.top = topY + 'px';
       el.style.display = (lx < -120 || lx > box.width + 120) ? 'none' : '';
