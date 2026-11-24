@@ -48,8 +48,8 @@ export async function renderWorld(app, state) {
       <div id="digest" style="position:absolute;left:14px;bottom:64px;z-index:5"></div>
       <div id="next-task" style="position:absolute;right:14px;left:14px;bottom:10px;z-index:5"></div>
       <button class="fab" id="fab" aria-label="إضافة مهمة" style="bottom:auto;top:64px">+</button>
-      <button id="mapbtn" aria-label="خريطة العالم" style="position:absolute;top:122px;left:14px;z-index:6;background:rgba(14,34,56,.88);color:#CFF5EA;border:2px solid #33475C;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">🗺 الخريطة</button>
-      <button id="backbtn" aria-label="عودة لسامي" style="position:absolute;top:122px;left:14px;z-index:6;display:none;background:#0E2238;color:#FFC857;border:2px solid #FFC857;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">📍 عودة لسامي</button>
+      <button id="mapbtn" aria-label="خريطة العالم" style="position:absolute;top:122px;left:14px;z-index:6;background:rgba(14,34,56,.88);color:#CFF5EA;border:2px solid #33475C;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">الخريطة</button>
+      <button id="backbtn" aria-label="عودة لسامي" style="position:absolute;top:122px;left:14px;z-index:6;display:none;background:#0E2238;color:#FFC857;border:2px solid #FFC857;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">عودة لسامي</button>
     </div>`;
 
   const canvas = app.querySelector('#world-canvas');
@@ -234,9 +234,16 @@ export async function renderWorld(app, state) {
       }
     }
 
-    // الكاميرا: تتبع سامي بنعومة، أو استكشاف يدوي (سحب/تصغير) — المشاهد والراحة تفرض التتبع
+    // الكاميرا: تتبع سامي بنعومة، أو استكشاف يدوي مستقل تمامًا — لا مشهد ولا راحة يقطعانه؛
+    // المشهد الجديد يحوّل زر العودة إلى تنبيه كهرماني بدل سحب الكاميرا من يد المستخدم
     const view = engine.view;
-    if ((engine.active || engine.resting) && view.manual) { view.manual = false; view.zoom = 1; syncBtns(); }
+    const sceneOn = !!(engine.active || engine.resting);
+    if (sceneOn !== (backbtn.dataset.scene === '1')) {
+      backbtn.dataset.scene = sceneOn ? '1' : '';
+      backbtn.textContent = sceneOn ? 'مشهد عند سامي — عودة' : 'عودة لسامي';
+      backbtn.style.background = sceneOn ? '#FFC857' : '#0E2238';
+      backbtn.style.color = sceneOn ? '#0E2238' : '#FFC857';
+    }
     let vsc = scale, vox = offX, offY;
     if (view.manual) {
       if (view.anim) {
@@ -288,17 +295,32 @@ export async function renderWorld(app, state) {
     ctx.restore();
     drawScene(ctx, box.width, box.height, now, env, 'front');
 
-    // منارة موقع سامي في وضع الاستكشاف: حلقة نابضة ووسم «سامي هنا» (ثابتة في وضع تقليل الحركة)
+    // منارة موقع سامي في وضع الاستكشاف: حلقة نابضة ووسم «سامي هنا» (ثابتة في وضع تقليل الحركة)؛
+    // وإن كان خارج الشاشة: سهم عند الحافة يشير إليه — المستخدم لا يفقد موضعه أثناء التجول
     if (view.manual && sami.visible) {
       const bx = vox + (sami.x - engine.camXi) * vsc, by = offY + (sami.y - 30) * vsc;
-      const pr = reduce ? 0 : 5 * Math.sin(now / 280);
+      const onScreen = bx >= -10 && bx <= box.width + 10 && by >= 50 && by <= box.height - 60;
       ctx.save();
-      ctx.strokeStyle = '#FFC857'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(bx, by, 15 + pr, 0, Math.PI * 2); ctx.stroke();
-      ctx.font = "bold 12px 'Tajawal', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
-      ctx.strokeText('سامي هنا', bx, by - 26); ctx.fillStyle = '#ffe9a8';
-      ctx.fillText('سامي هنا', bx, by - 26);
+      if (onScreen) {
+        const pr = reduce ? 0 : 5 * Math.sin(now / 280);
+        ctx.strokeStyle = '#FFC857'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(bx, by, 15 + pr, 0, Math.PI * 2); ctx.stroke();
+        ctx.font = "bold 12px 'Tajawal', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
+        ctx.strokeText('سامي هنا', bx, by - 26); ctx.fillStyle = '#ffe9a8';
+        ctx.fillText('سامي هنا', bx, by - 26);
+      } else {
+        const ex = Math.max(26, Math.min(box.width - 26, bx));
+        const ey = Math.max(72, Math.min(box.height - 92, by));
+        const ang = Math.atan2(by - ey, bx - ex);
+        ctx.translate(ex, ey); ctx.rotate(ang);
+        ctx.fillStyle = '#FFC857';
+        ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-6, 7); ctx.lineTo(-6, -7); ctx.closePath(); ctx.fill();
+        ctx.rotate(-ang);
+        ctx.font = "bold 11px 'Tajawal', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
+        ctx.strokeText('سامي', 0, 20); ctx.fillStyle = '#ffe9a8'; ctx.fillText('سامي', 0, 20);
+      }
       ctx.restore();
     }
 
@@ -359,6 +381,7 @@ export async function renderWorld(app, state) {
       overlayRects.push({ l: fx - 60 * vsc, r: fx + 60 * vsc, t: fy - 46 * vsc, b: fy + 14 * vsc });
     }
     const lblScale = vsc < scale * 0.8 ? Math.max(0.6, vsc / scale) : 1;
+    const placedLbls = []; // في وضع الخريطة: منع تراكب اللافتات بعضها فوق بعض بإزاحة رأسية متبادلة
     for (const { el, d } of labelEls) {
       if ((el.dataset.ls || '1') !== String(lblScale)) {
         el.dataset.ls = String(lblScale);
@@ -373,6 +396,15 @@ export async function renderWorld(app, state) {
       for (const rc of [...actorRects, ...overlayRects]) { // ولا تغطي سامي/بندق ولا التنبيهات العائمة — تُرفع فوقها
         if (clamped + 44 > rc.l && clamped - 44 < rc.r && topY + lh > rc.t && topY < rc.b)
           topY = Math.max(60, rc.t - lh - 2); // لا تختفي تحت الشريط العلوي حتى عند الرفع
+      }
+      if (lblScale < 1) {
+        const hw = 46 * lblScale, hh = lh * lblScale;
+        let step = 0;
+        while (placedLbls.some(r => Math.abs(r.x - clamped) < hw + r.hw && Math.abs(r.y - topY) < (hh + r.hh) * 0.8) && step < 6) {
+          step++;
+          topY = Math.max(56, Math.min(hudTop - lh - 2, topY + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * (hh + 8)));
+        }
+        placedLbls.push({ x: clamped, y: topY, hw, hh });
       }
       el.style.left = (clamped - 44) + 'px';
       el.style.top = topY + 'px';
