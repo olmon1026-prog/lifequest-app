@@ -189,10 +189,12 @@ export function routeWaypoints(x0, y0, x1, y1) {
   if (!segBlocked(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
   const tA = nearestPathT(x0, y0), tB = nearestPathT(x1, y1);
   const pts = [];
-  const [ts, te] = tA <= tB ? [tA, tB] : [tB, tA];
   const pA = pathPoint(tA);
   if (Math.hypot(pA.x - x0, pA.y - y0) > 4) pts.push(pA);
-  for (let t = ts + 0.04; t < te; t += 0.04) pts.push(pathPoint(t));
+  // الاتجاه يتبع tA→tB: المشي غربًا (t تنازليًا) كان يدرج العينات تصاعديًا فيقفز
+  // الممثل من أول الطريق لآخره بخط مستقيم يخترق المباني (تدقيق routes.test)
+  const dir = tA <= tB ? 1 : -1;
+  for (let t = tA + dir * 0.04; dir > 0 ? t < tB : t > tB; t += dir * 0.04) pts.push(pathPoint(t));
   pts.push(pathPoint(tB));
   // نقطة انصراف عن الطريق باتجاه الهدف إن كانت قفزة الخروج محجوبة
   if (segBlocked(pts[pts.length - 1].x, pts[pts.length - 1].y, x1, y1)) {
