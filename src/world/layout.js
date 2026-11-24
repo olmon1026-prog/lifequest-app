@@ -4,6 +4,21 @@
 export const W = 820, H = 640;        // حجم العالم
 export const VIEW_W = 390, VIEW_H = 640; // نافذة العرض
 
+// الإزاحة العمودية للعالم. على الشاشات الأقصر من العالم (boxH/s < VIEW_H — سطح المكتب
+// والوضع الأفقي) تتبع كاميرا رأسية موضع البطل بحيث يبقى رأسه تحت الشريط العلوي وقدماه
+// فوق شريط التنقل، بدل تثبيت شريط العالم السفلي الذي كان يقصّ رأسه خارج المشهد
+// (عيب مؤكد على 1280×720). على البورتريه الطويل (الهواتف) نفس قاعدة التثبيت السابقة.
+export function viewOffY(boxH, s, focusY = null) {
+  if (focusY != null && boxH / s < VIEW_H) {
+    const usableTop = 64, usableBottom = 64; // HUD علوي + تنقل/مهمة سفلي بهامش
+    const headroom = 54;                      // رأس البطل فوق قدميه (99×0.5) + هامش
+    const target = Math.max(usableTop + headroom * s, usableTop + (boxH - usableTop - usableBottom) / 2);
+    const camY = Math.min(Math.max(focusY - target / s, 0), VIEW_H - boxH / s);
+    return Math.round(-camY * s);
+  }
+  return Math.round(Math.min((boxH - VIEW_H * s) / 2, boxH - 56 - 630 * s));
+}
+
 export const SKY_H = 200;
 export const SEA_TOP = 200;
 export const SHORE = 330;             // خط الشاطئ الأساسي

@@ -196,7 +196,7 @@ function drawFrontStage(ctx, w, h, time, env) {
   const still = env.reduceMotion;
   const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
   ctx.save();
-  ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
+  ctx.translate(Math.round((w - VIEW_W * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
   ctx.scale(s, s);
   ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
   ctx.imageSmoothingEnabled = false;
@@ -228,7 +228,7 @@ function drawBackStage(ctx, w, h, time, env) {
   const { cv: near, chimneys } = nearLayer(phase, false);
   const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
   ctx.save();
-  ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
+  ctx.translate(Math.round((w - VIEW_W * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
   ctx.scale(s, s);
   ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
   ctx.imageSmoothingEnabled = false;

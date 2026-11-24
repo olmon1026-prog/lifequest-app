@@ -2,7 +2,7 @@
 import { store } from '../store.js';
 import { topbarHTML } from '../ui/topbar.js';
 import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, nearestPathT,
-         cameraFor, destinationProgress, destinationState, heroT } from './layout.js';
+         cameraFor, destinationProgress, destinationState, heroT, viewOffY } from './layout.js';
 import { drawScene, preloadBuildings } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
@@ -54,9 +54,9 @@ export async function renderWorld(app, state) {
   canvas.width = box.width * dpr; canvas.height = box.height * dpr;
   ctx.scale(dpr, dpr);
   const scale = Math.max(box.width / VIEW_W, box.height / VIEW_H); // تغطية لا احتواء
-  // منطقة HUD آمنة: خط سير البطل (حتى باب البيت y≈630) لا ينزل تحت شريط «المهمة التالية» مهما كان مقاس الشاشة
+  // منطقة HUD آمنة: viewOffY يتتبع البطل رأسيًا على الشاشات القصيرة ويثبّت الشريط السفلي على الطويلة
   const offX = (box.width - VIEW_W * scale) / 2;
-  const offY = Math.min((box.height - VIEW_H * scale) / 2, box.height - 56 - 630 * scale);
+  const offY = viewOffY(box.height, scale, sami.y);
 
   if (!sheets) {
     try {
@@ -99,8 +99,11 @@ export async function renderWorld(app, state) {
       <span>المهمة التالية: <b>${esc(next.title)}</b></span>
       <b style="color:#FFC857">${arNum(doneCount)} / ${arNum(totalCount)}</b></div>`;
   } else {
+    // لا مهمة مفتوحة: إما لا مهام أصلًا (بداية الرحلة) أو كل المهام منجزة — الصياغة تفرّق بينهما
+    const anyTasks = state.items.some(i => !i.archivedAt && ['task', 'subtask'].includes(i.type));
+    const emptyMsg = anyTasks ? 'كل مهامك منجزة ✓ — أضف مهمة جديدة بـ +' : 'لا مهام بعد — اضغط + وابدأ رحلتك';
     nt.innerHTML = `<div style="background:rgba(14,34,56,.9);border:2px solid #33475C;border-radius:12px;
-      padding:8px 12px;color:#CFF5EA;font-size:13px;text-align:center">لا مهام بعد — اضغط + وابدأ رحلتك</div>`;
+      padding:8px 12px;color:#CFF5EA;font-size:13px;text-align:center">${emptyMsg}</div>`;
   }
   app.querySelector('#fab').onclick = () => { unlockAudio(); openAddSheet({ dueDate: tStr }); };
 
@@ -161,7 +164,7 @@ export async function renderWorld(app, state) {
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: storyNow.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
-      camX: engine.camXi, doorT: engine.doorT,
+      camX: engine.camXi, doorT: engine.doorT, viewOffY: offY,
     };
     drawScene(ctx, box.width, box.height, now, env, 'back');
     ctx.save(); ctx.translate(offX - engine.camXi * scale, offY); ctx.scale(scale, scale);
