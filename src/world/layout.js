@@ -13,17 +13,24 @@ export const RIGHT_CLIFF = { left: 636, top: 186, base: 352 };
 export const LIGHTHOUSE = { x: 736, baseY: 190 };
 export const MOON = { x: 120, y: 72, r: 34 };
 
-// القرية على المنحدر — مقاسات شبه حقيقية: الباب ≈ قامة سامي (house w≈110، الباب ٥٢px)
-export const VILLAGE_HOUSES = [
-  { x: 296, y: 470, w: 108, roof: 'gable', tone: 0, lit: true },
-  { x: 428, y: 442, w: 96,  roof: 'shed',  tone: 1, lit: false },
-  { x: 508, y: 500, w: 118, roof: 'gable', tone: 2, lit: true },
-  { x: 566, y: 428, w: 92,  roof: 'hip',   tone: 0, lit: true },
+// القرية على شارعين مخططين: صف شمالي أبوابه على الشارع، وصف جنوبي فيه
+// البيت الحجري الكبير وبيت سامي والمهجور. كل مبنى أصل مولّد مختلف التصميم
+// (قاعدة SLYNYRD: منظور واحد يوحّد المشهد؛ المباني متصلة بالأرض ببقعة مهترئة).
+// smoke = [إزاحة المدخنة من المركز ×w، ارتفاعها ×الارتفاع] لدخان حي.
+export const BUILDINGS = [
+  { sprite: 'housea',    x: 190, y: 514, w: 150, smoke: [ 0.26, -0.80] },
+  { sprite: 'workshop',  x: 360, y: 496, w: 150, smoke: [ 0.30, -0.86] },
+  { sprite: 'houseb',    x: 528, y: 454, w: 130, smoke: [-0.26, -0.80] },
+  { sprite: 'stone',     x: 190, y: 614, w: 140, front: true },
+  { sprite: 'sami',      x: 400, y: 608, w: 150, smoke: [ 0.27, -0.78], front: true },
+  { sprite: 'ruined',    x: 570, y: 604, w: 130, front: true },
+  { sprite: 'market',    x: 300, y: 535, w: 86 },
+  { sprite: 'beachhut',  x: 132, y: 372, w: 100 },
 ];
 
-export const SAMI_HOUSE = { x: 350, y: 566, w: 104 };
-export const SAMI_DOOR = { x: 350, y: 566 }; // نقطة الدخول عند الباب
-export const ABANDONED_HOUSE = { x: 530, y: 580, w: 96 };
+export const SAMI_HOUSE = { x: 400, y: 608, w: 150 };
+export const SAMI_DOOR = { x: 400, y: 610 };            // نقطة وقوف سامي أمام الباب
+export const SAMI_DOORWAY = { x: 400, y: 601, w: 30, h: 52 }; // فتحة الباب (احتياطي كودي)
 export const CHERRY_TREE = { x: 76, y: 584, scale: 1.5 };
 
 // الغابة غربًا (ظلال مقدمة للفصل ٤)
@@ -33,19 +40,19 @@ export const FOREST_EDGE = 70;
 export const DESTINATIONS = [
   { id: 'health',   name: 'الشاطئ',   kind: 'beach',      x: 132, y: 372, spot: { x: 140, y: 392 } },
   { id: 'learning', name: 'المنارة',  kind: 'lighthouse', x: 736, y: 200, spot: { x: 702, y: 228 } },
-  { id: 'work',     name: 'الورشة',   kind: 'workshop',   x: 470, y: 448, spot: { x: 452, y: 472 } },
-  { id: 'home',     name: 'بيت سامي', kind: 'house',      x: 350, y: 566, spot: { x: 386, y: 578 } },
-  { id: 'money',    name: 'السوق',    kind: 'market',     x: 402, y: 492, spot: { x: 402, y: 514 } },
+  { id: 'work',     name: 'الورشة',   kind: 'workshop',   x: 360, y: 496, spot: { x: 360, y: 518 } },
+  { id: 'home',     name: 'بيت سامي', kind: 'house',      x: 400, y: 608, spot: { x: 434, y: 618 } },
+  { id: 'money',    name: 'السوق',    kind: 'market',     x: 300, y: 535, spot: { x: 300, y: 552 } },
 ];
 
 // نقاط الروتين اليومي
 export const SPOTS = {
-  door:      { x: 386, y: 578 },
-  square:    { x: 414, y: 520 },
+  door:      { x: 434, y: 618 },
+  square:    { x: 292, y: 548 },
   beach:     { x: 140, y: 392 },
   lighthouse:{ x: 702, y: 228 },
   tree:      { x: 96,  y: 596 },
-  overlook:  { x: 560, y: 400 },
+  overlook:  { x: 620, y: 398 },
 };
 
 // الطريق الرئيسي: من مدخل الغابة غربًا عبر القرية حتى قاعدة المنارة شرقًا — t من 0 إلى 1

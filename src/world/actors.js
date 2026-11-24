@@ -15,7 +15,9 @@ export class Actor {
     this.onArrive = null;
     this.visible = true;   // false داخل البيت
     this.alpha = 1;        // يتلاشى عند الدخول
+    this.targetAlpha = 1;  // هدف التلاشي التدريجي
   }
+  fadeTo(a) { this.targetAlpha = a; }
   goTo(x, y, onArrive = null) { this.tx = x; this.ty = y; this.onArrive = onArrive; }
   get moving() { return Math.hypot(this.tx - this.x, this.ty - this.y) > 1.5; }
   update(dt, time) {
@@ -31,6 +33,12 @@ export class Actor {
       this.frame = 0;
     }
     if (this.hop > 0) this.hop = Math.max(0, this.hop - dt);
+    if (this.alpha !== this.targetAlpha) {
+      const d = Math.sign(this.targetAlpha - this.alpha) * dt / 380;
+      this.alpha = Math.abs(this.targetAlpha - this.alpha) <= Math.abs(d)
+        ? this.targetAlpha : this.alpha + d;
+      if (this.alpha === 0 && this.targetAlpha === 0) this.visible = false;
+    }
   }
   draw(ctx, sheet, time) {
     if (!sheet || !this.visible) return;

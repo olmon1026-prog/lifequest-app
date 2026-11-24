@@ -2,8 +2,7 @@
 // المقاسات: الباب ≈ قامة سامي (الشخصية ~٥٠px). المراجع: SLYNYRD (ماء متحرك)،
 // Nasha's Haunted Lighthouse (تنقيط وإضاءة ليلية)، أعراف Stardew لنسب القرى.
 import { W, H, SKY_H, SEA_TOP, SHORE, LEFT_CLIFF, RIGHT_CLIFF, LIGHTHOUSE, MOON,
-         VILLAGE_HOUSES, SAMI_HOUSE, ABANDONED_HOUSE, CHERRY_TREE, FOREST_EDGE,
-         DESTINATIONS, pathPoint, rng } from './layout.js';
+         CHERRY_TREE, FOREST_EDGE, DESTINATIONS, pathPoint, rng } from './layout.js';
 
 export const PAL = {
   night: {
@@ -16,6 +15,7 @@ export const PAL = {
     pathA: '#4A3E50', pathB: '#3C3244', pathEdge: '#2A2434', stone: '#5E5468',
     wallA: '#3B4A66', wallB: '#2E3A54', wallC: '#46587A',
     roofA: '#167A7A', roofB: '#0F5A5C', roofC: '#1E8E8A',
+        wallD: '#26334C', timber: '#2A2030', plinth: '#2E3A52', roofEave: '#0B4446',
     winLit: '#FFC857', winDark: '#0B1838',
     trunk: '#4A3244', leafA: '#7E5A78', leafB: '#5E4460', leafHi: '#A87E9E',
     moon: '#F2FBF2', moonCrater: '#C9E4DC',
@@ -31,6 +31,7 @@ export const PAL = {
     pathA: '#7A6258', pathB: '#685249', pathEdge: '#4E3E38', stone: '#96807A',
     wallA: '#7A6E80', wallB: '#5E5468', wallC: '#96889A',
     roofA: '#B85A4A', roofB: '#96463A', roofC: '#D0705A',
+        wallD: '#4E4558', timber: '#4E3636', plinth: '#565060', roofEave: '#7A382E',
     winLit: '#FFC857', winDark: '#2A2438',
     trunk: '#5A3A3A', leafA: '#9A6A7A', leafB: '#7A5468', leafHi: '#C08A9A',
     moon: '#F6E8D8', moonCrater: '#D8C4B4',
@@ -46,6 +47,7 @@ export const PAL = {
     pathA: '#C8AE82', pathB: '#B49870', pathEdge: '#8A7458', stone: '#D8C49A',
     wallA: '#E8E0CE', wallB: '#CBC0AA', wallC: '#F4EEDF',
     roofA: '#C8412F', roofB: '#9E3222', roofC: '#E05846',
+        wallD: '#B0A48C', timber: '#7A5A44', plinth: '#A99A80', roofEave: '#7E2A1C',
     winLit: '#BFE4E4', winDark: '#24405C',
     trunk: '#6E4A3A', leafA: '#E8A8BC', leafB: '#C8849C', leafHi: '#F8CCDA',
     moon: '#FFF6E0', moonCrater: '#EADFC0',
@@ -61,6 +63,7 @@ export const PAL = {
     pathA: '#84685C', pathB: '#72564E', pathEdge: '#54403A', stone: '#A08878',
     wallA: '#8A7688', wallB: '#6E5C6E', wallC: '#A894A4',
     roofA: '#B8503E', roofB: '#923C2E', roofC: '#D46854',
+        wallD: '#5C4E5E', timber: '#523838', plinth: '#5E5466', roofEave: '#74342A',
     winLit: '#FFC857', winDark: '#241E34',
     trunk: '#5E3E3E', leafA: '#B87E92', leafB: '#96647A', leafHi: '#DCA2B4',
     moon: '#FBEEDD', moonCrater: '#E0CBB2',
@@ -117,56 +120,107 @@ export function sea(ctx, P, seed = 31) {
 }
 
 // بيت بكسل بنسب حقيقية: الباب ≈ ٠٫٥ من الجدار والشخصية تمر منه
-export function house(ctx, P, o, phase, doorOpen = false) {
+export function house(ctx, P, o, phase) {
   const { x, y, w } = o;
-  const h = Math.round(w * 0.7), roofH = Math.round(w * 0.5);
+  const h = Math.round(w * 0.62), roofH = Math.round(w * 0.44);
   const wall = [P.wallA, P.wallB, P.wallC][o.tone || 0];
-  // جدار بملمس حجري خفيف
-  ctx.fillStyle = wall; ctx.fillRect(x - w / 2, y - h, w, h);
-  dither(ctx, x - w / 2, y - h, w, 8, 'rgba(0,0,0,.18)', 0.5);
-  dither(ctx, x - w / 2, y - h + 10, w, h - 10, 'rgba(255,255,255,.05)', 0.25);
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x - w / 2, y - 4, w, 4);
-  // سقف
-  const roof = o.roof || 'gable';
-  if (roof === 'gable') poly(ctx, [[x - w / 2 - 6, y - h], [x, y - h - roofH], [x + w / 2 + 6, y - h]], P.roofA);
-  else if (roof === 'hip') poly(ctx, [[x - w / 2 - 6, y - h], [x - w / 4, y - h - roofH], [x + w / 4, y - h - roofH], [x + w / 2 + 6, y - h]], P.roofA);
-  else poly(ctx, [[x - w / 2 - 6, y - h - roofH * 0.4], [x + w / 2 + 6, y - h - roofH], [x + w / 2 + 6, y - h]], P.roofA);
-  // بلاطات السقف
-  ctx.fillStyle = P.roofB;
-  for (let i = 1; i < 4; i++) {
-    const ry = y - h - (roofH * i) / 4;
-    const rw = (w + 12) * (1 - i / 4.4);
-    ctx.fillRect(x - rw / 2, ry, rw, 2);
+  const L = x - w / 2, R = x + w / 2, T = y - 7 - h; // جدار فوق قاعدة 7px
+
+  // أرضية مهترئة حول البيت تربطه بالموقع (قاعدة: connection to the earth)
+  ctx.fillStyle = P.pathA; ctx.globalAlpha = 0.35;
+  ctx.beginPath(); ctx.ellipse(x, y + 2, w / 2 + 12, 8, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+  dither(ctx, L - 10, y - 3, w + 20, 8, P.pathEdge, 0.3);
+
+  // القاعدة الحجرية (plinth)
+  ctx.fillStyle = P.plinth; ctx.fillRect(L - 2, y - 7, w + 4, 7);
+  dither(ctx, L - 2, y - 7, w + 4, 7, P.rockB, 0.4);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(L - 2, y - 2, w + 4, 2);
+
+  // الجدار بحد أغمق منه بدرجة (لا أسود صريح)
+  ctx.fillStyle = wall; ctx.fillRect(L, T, w, h);
+  ctx.strokeStyle = P.wallD; ctx.lineWidth = 2;
+  ctx.strokeRect(L + 1, T + 1, w - 2, h + 6);
+  dither(ctx, L, T, w, h, 'rgba(255,255,255,.05)', 0.2);
+  dither(ctx, L, y - 20, w, 13, 'rgba(0,0,0,.14)', 0.35); // ظل سفلي
+  // عوارض خشبية: زاويتان + تاج تحت السقف
+  ctx.fillStyle = P.timber;
+  ctx.fillRect(L, T, 4, h); ctx.fillRect(R - 4, T, 4, h);
+  ctx.fillRect(L, T, w, 4);
+
+  // ظل الأفاريز على الجدار (عمق من الإضاءة)
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(L - 2, T - 2, w + 4, 5);
+
+  // سقف جملوني واحد الميل لكل القرية + خطوط بلاط + حافة مضيئة
+  poly(ctx, [[L - 8, T - 3], [x, T - 3 - roofH], [R + 8, T - 3]], P.roofA);
+  ctx.strokeStyle = P.roofEave; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(L - 8, T - 3); ctx.lineTo(x, T - 3 - roofH); ctx.lineTo(R + 8, T - 3); ctx.stroke();
+  ctx.strokeStyle = P.roofB; ctx.lineWidth = 2;
+  for (let i = 1; i <= 3; i++) {
+    const ry = T - 3 - (roofH * i) / 4, rw = (w + 16) * (1 - i / 4);
+    ctx.beginPath(); ctx.moveTo(x - rw / 2, ry); ctx.lineTo(x + rw / 2, ry); ctx.stroke();
   }
-  ctx.fillStyle = P.roofC; ctx.fillRect(x - w / 2 - 6, y - h - 2, w + 12, 3);
-  // نوافذ مضيئة ليلًا
+  ctx.fillStyle = P.roofC; ctx.fillRect(x - 5, T - 6 - roofH, 10, 5); // تاج القمة
+
+  // نوافذ بإطار خشبي وعتبة؛ مضيئة ليلًا بهالة
   const lit = o.lit && (phase === 'night' || phase === 'dusk');
-  const winCol = lit ? P.winLit : P.winDark;
-  const wy = y - h + Math.round(h * 0.24), ws = Math.max(10, Math.round(w * 0.13));
-  ctx.fillStyle = winCol;
-  ctx.fillRect(x - w / 2 + 8, wy, ws, ws); ctx.fillRect(x + w / 2 - 8 - ws, wy, ws, ws);
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
-  ctx.fillRect(x - w / 2 + 8 + ws / 2 - 1, wy, 2, ws); ctx.fillRect(x + w / 2 - 8 - ws + ws / 2 - 1, wy, 2, ws);
-  ctx.fillRect(x - w / 2 + 8, wy + ws / 2 - 1, ws, 2); ctx.fillRect(x + w / 2 - 8 - ws, wy + ws / 2 - 1, ws, 2);
-  if (lit) {
-    ctx.fillStyle = 'rgba(255,200,87,.14)';
-    ctx.fillRect(x - w / 2 + 4, wy - 4, ws + 8, ws + 8); ctx.fillRect(x + w / 2 - 12 - ws, wy - 4, ws + 8, ws + 8);
+  const ws = Math.max(10, Math.round(w * 0.12));
+  const wy = T + Math.round(h * 0.28);
+  for (const wx of [L + Math.round(w * 0.16), R - Math.round(w * 0.16) - ws]) {
+    ctx.fillStyle = P.timber; ctx.fillRect(wx - 2, wy - 2, ws + 4, ws + 4);
+    ctx.fillStyle = lit ? P.winLit : P.winDark; ctx.fillRect(wx, wy, ws, ws);
+    ctx.fillStyle = P.timber;
+    ctx.fillRect(wx + ws / 2 - 1, wy, 2, ws); ctx.fillRect(wx, wy + ws / 2 - 1, ws, 2);
+    ctx.fillRect(wx - 3, wy + ws + 2, ws + 6, 2); // عتبة
+    if (lit) { ctx.fillStyle = 'rgba(255,200,87,.15)'; ctx.fillRect(wx - 5, wy - 5, ws + 10, ws + 10); }
   }
-  // الباب ≈ قامة الشخصية؛ يفتح عند دخول سامي
+
+  // الباب مغلق دائمًا في الطبقة الثابتة؛ الفتح المتحرك يرسمه doorway()
   const dw = Math.round(w * 0.2), dh = Math.round(h * 0.62);
-  if (doorOpen) {
-    ctx.fillStyle = '#05080F'; ctx.fillRect(x - dw / 2, y - dh, dw, dh); // فتحة مظلمة
-    ctx.fillStyle = P.winDark; ctx.fillRect(x - dw / 2 - 4, y - dh, 4, dh); // مصراع مفتوح
-    ctx.fillStyle = 'rgba(255,200,87,.35)'; ctx.fillRect(x - dw / 2 + 2, y - dh + 3, dw - 6, 4); // ضوء من الداخل
-  } else {
-    ctx.fillStyle = P.winDark; ctx.fillRect(x - dw / 2, y - dh, dw, dh);
-    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x - dw / 2, y - dh, dw, 3);
-    ctx.fillStyle = 'rgba(255,200,87,.8)'; ctx.fillRect(x + dw / 2 - 5, y - dh / 2, 3, 3); // مقبض
+  ctx.fillStyle = P.wallD; ctx.fillRect(x - dw / 2 - 3, y - 7 - dh - 3, dw + 6, dh + 6); // إطار غائص
+  ctx.fillStyle = P.winDark; ctx.fillRect(x - dw / 2, y - 7 - dh, dw, dh);
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
+  for (let px = x - dw / 2 + 5; px < x + dw / 2; px += 6) { ctx.beginPath(); ctx.moveTo(px, y - 7 - dh + 2); ctx.lineTo(px, y - 9); ctx.stroke(); }
+  ctx.fillStyle = P.timber; ctx.fillRect(x - dw / 2 - 4, y - 7 - dh - 6, dw + 8, 3); // عتبة علوية
+  ctx.fillStyle = 'rgba(255,200,87,.85)'; ctx.fillRect(x + dw / 2 - 6, y - 7 - dh / 2 - 1, 3, 3); // مقبض
+  ctx.fillStyle = P.plinth; ctx.fillRect(x - dw / 2 - 4, y - 4, dw + 8, 4); // درجة
+
+  // مدخنة بتاج حجري
+  if (o.tone !== 1) {
+    ctx.fillStyle = P.plinth; ctx.fillRect(x + w / 4, T - roofH + 8, 10, 22);
+    ctx.fillStyle = P.rockHi; ctx.fillRect(x + w / 4 - 1, T - roofH + 6, 12, 3);
+    ctx.strokeStyle = P.wallD; ctx.lineWidth = 1; ctx.strokeRect(x + w / 4 + 0.5, T - roofH + 8.5, 9, 21);
   }
-  // عتبة ومدخنة
-  ctx.fillStyle = P.pathEdge; ctx.fillRect(x - dw / 2 - 3, y - 3, dw + 6, 3);
-  if (o.tone !== 2) { ctx.fillStyle = P.roofB; ctx.fillRect(x + w / 4, y - h - roofH + 4, 9, 18); ctx.fillStyle = P.rockHi; ctx.fillRect(x + w / 4 - 1, y - h - roofH + 2, 11, 3); }
-  return { chimneyX: x + w / 4 + 4, chimneyY: y - h - roofH + 2, lit, doorH: dh };
+  return { chimneyX: x + w / 4 + 5, chimneyY: T - roofH + 4, lit,
+           door: { x, y: y - 7, w: dw, h: dh } };
+}
+
+// فتح الباب المتحرك (طبقة حية فوق الثابتة): t من 0 مغلق إلى 1 مفتوح
+export function doorway(ctx, P, d, t, phase) {
+  if (t <= 0.01) return;
+  const night = phase !== 'day';
+  // فتحة داكنة تتسع
+  ctx.fillStyle = `rgba(4,6,12,${0.4 + 0.6 * t})`;
+  ctx.fillRect(d.x - d.w / 2, d.y - d.h, d.w, d.h);
+  // توهج داخلي دافئ
+  if (night) {
+    const g = ctx.createRadialGradient(d.x, d.y - d.h * 0.55, 1, d.x, d.y - d.h * 0.55, d.h);
+    g.addColorStop(0, `rgba(255,190,90,${0.5 * t})`); g.addColorStop(1, 'rgba(255,190,90,0)');
+    ctx.fillStyle = g; ctx.fillRect(d.x - d.h, d.y - d.h * 1.8, d.h * 2, d.h * 2);
+  }
+  // مصراع مفصلي يدور للخارج (متوازي أضلاع يضيق مع الفتح)
+  const sw = Math.round(d.w * 0.9 * t);
+  if (sw > 1) {
+    poly(ctx, [[d.x - d.w / 2, d.y - d.h], [d.x - d.w / 2 - sw * 0.45, d.y - d.h + 4],
+               [d.x - d.w / 2 - sw * 0.45, d.y - 1], [d.x - d.w / 2, d.y - 1]], '#1A2438');
+    ctx.fillStyle = 'rgba(255,255,255,.07)';
+    ctx.fillRect(d.x - d.w / 2 - sw * 0.45, d.y - d.h + 4, 2, d.h - 5);
+  }
+  // بقعة ضوء تنسكب على الأرض
+  if (night) {
+    ctx.fillStyle = `rgba(255,200,87,${0.16 * t})`;
+    poly(ctx, [[d.x - d.w / 2, d.y], [d.x + d.w / 2, d.y], [d.x + d.w, d.y + 14], [d.x - d.w, d.y + 14]], ctx.fillStyle);
+  }
 }
 
 // بيت مهجور: سقف منهار، شباك مظلم، نباتات متسلقة
@@ -206,34 +260,66 @@ export function cliff(ctx, P, side) {
 // المنارة أكبر وبمراحل: جدر حجري + أحزمة + شرفة + مصباح. lamp: 0/1/2
 export function lighthouse(ctx, P, phase, lamp) {
   const { x, baseY } = LIGHTHOUSE;
-  const w = 34, h = 128;
-  poly(ctx, [[x - w / 2 - 5, baseY], [x - w / 2 + 2, baseY - h], [x + w / 2 - 2, baseY - h], [x + w / 2 + 5, baseY]], P.wallC);
-  ctx.fillStyle = P.roofA;
-  for (let i = 0; i < 4; i++) {
-    const yy = baseY - 20 - i * 28;
-    ctx.fillRect(x - w / 2 - 3 + i, yy, w + 6 - i * 2, 8);
+  const h = 132, wB = 44, wT = 26;
+  // صخرة القاعدة
+  poly(ctx, [[x - 30, baseY + 6], [x - 22, baseY - 6], [x + 24, baseY - 6], [x + 32, baseY + 6]], P.rockB);
+  ctx.fillStyle = P.rockHi; ctx.fillRect(x - 22, baseY - 8, 46, 3);
+
+  // جسم البرج المدبب بحد أغمق من الجدار (منظور واحد، إضاءة من اليسار)
+  poly(ctx, [[x - wB / 2, baseY - 6], [x - wT / 2, baseY - 6 - h], [x + wT / 2, baseY - 6 - h], [x + wB / 2, baseY - 6]], P.wallC);
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  poly(ctx, [[x + wT / 2 - 5, baseY - 6 - h], [x + wT / 2, baseY - 6 - h], [x + wB / 2, baseY - 6], [x + wB / 2 - 8, baseY - 6]], ctx.fillStyle);
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x - wB / 2 + 2, baseY - 8 - h + 4, 3, h - 2);
+  dither(ctx, x - wB / 2, baseY - 6 - h, wB, h, 'rgba(0,0,0,.10)', 0.25);
+
+  // حزامان أحمران يتبعان التدبب
+  const wAt = (yy) => wB - (wB - wT) * ((baseY - 6 - yy) / h);
+  for (const [fy, bh] of [[baseY - 44, 12], [baseY - 92, 11]]) {
+    const ww = wAt(fy);
+    ctx.fillStyle = P.roofA; ctx.fillRect(x - ww / 2, fy, ww, bh);
+    ctx.fillStyle = P.roofEave; ctx.fillRect(x - ww / 2, fy, ww, 2);
   }
-  dither(ctx, x - w / 2, baseY - h, w, h, 'rgba(0,0,0,.16)', 0.4);
-  // مدخل
-  ctx.fillStyle = P.winDark; ctx.fillRect(x - 7, baseY - 24, 14, 24);
-  ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(x - 7, baseY - 24, 14, 3);
-  // نوافذ
-  ctx.fillStyle = P.winDark;
-  ctx.fillRect(x - 4, baseY - 56, 8, 10); ctx.fillRect(x - 4, baseY - 88, 8, 10);
-  // الشرفة والمصباح
-  ctx.fillStyle = P.rockB; ctx.fillRect(x - w / 2 - 6, baseY - h - 10, w + 12, 10);
-  for (let i = 0; i < 8; i++) ctx.fillRect(x - w / 2 - 6 + i * 6, baseY - h - 18, 2, 8);
+
+  // المدخل بقوس ودرجة
+  ctx.fillStyle = P.winDark; ctx.fillRect(x - 6, baseY - 28, 12, 22);
+  ctx.fillRect(x - 5, baseY - 31, 10, 3);
+  ctx.strokeStyle = P.wallD; ctx.lineWidth = 2; ctx.strokeRect(x - 6, baseY - 28, 12, 22);
+  ctx.fillStyle = P.plinth; ctx.fillRect(x - 8, baseY - 7, 16, 3);
+
+  // شباكان ضيقان بإطار
+  for (const wy of [baseY - 62, baseY - 110]) {
+    const ww = wAt(wy);
+    ctx.fillStyle = P.wallD; ctx.fillRect(x - 4, wy, 8, 11);
+    ctx.fillStyle = P.winDark; ctx.fillRect(x - 3, wy + 1, 6, 9);
+  }
+
+  // شرفة بحاجز + ظل سفلي
+  const gy = baseY - 6 - h;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(x - wT / 2 - 6, gy, wT + 12, 3);
+  ctx.fillStyle = P.rockB; ctx.fillRect(x - wT / 2 - 8, gy - 5, wT + 16, 6);
+  ctx.fillStyle = P.rockHi; ctx.fillRect(x - wT / 2 - 8, gy - 5, wT + 16, 2);
+  ctx.fillStyle = P.rockB;
+  for (let i = 0; i <= 7; i++) ctx.fillRect(x - wT / 2 - 8 + i * ((wT + 16) / 7), gy - 14, 2, 9);
+  ctx.fillRect(x - wT / 2 - 8, gy - 14, wT + 16, 2);
+
+  // غرفة المصباح: زجاج بقواطع
   const lampOn = lamp > 0 && phase !== 'day';
-  ctx.fillStyle = lampOn ? P.winLit : '#0A1226';
-  ctx.fillRect(x - 8, baseY - h - 34, 16, 16);
-  poly(ctx, [[x - 11, baseY - h - 34], [x, baseY - h - 46], [x + 11, baseY - h - 34]], P.roofB);
-  ctx.fillStyle = P.roofB; ctx.fillRect(x - 1, baseY - h - 52, 2, 7);
+  ctx.fillStyle = P.rockB; ctx.fillRect(x - 10, gy - 32, 20, 18);
+  ctx.fillStyle = lampOn ? P.winLit : '#0A1226'; ctx.fillRect(x - 8, gy - 30, 16, 14);
+  ctx.fillStyle = P.rockB;
+  ctx.fillRect(x - 1, gy - 30, 2, 14); ctx.fillRect(x - 8, gy - 24, 16, 2);
+  // قبة وقضيب
+  poly(ctx, [[x - 11, gy - 32], [x, gy - 44], [x + 11, gy - 32]], P.roofA);
+  ctx.fillStyle = P.roofEave; ctx.fillRect(x - 11, gy - 34, 22, 2);
+  ctx.fillStyle = P.roofB; ctx.fillRect(x - 1, gy - 50, 2, 7);
+  ctx.fillRect(x - 3, gy - 52, 6, 2);
+
   if (lampOn) {
-    const g = ctx.createRadialGradient(x, baseY - h - 26, 2, x, baseY - h - 26, lamp === 2 ? 44 : 20);
+    const g = ctx.createRadialGradient(x, gy - 23, 2, x, gy - 23, lamp === 2 ? 46 : 22);
     g.addColorStop(0, 'rgba(255,200,87,.55)'); g.addColorStop(1, 'rgba(255,200,87,0)');
-    ctx.fillStyle = g; ctx.fillRect(x - 46, baseY - h - 72, 92, 92);
+    ctx.fillStyle = g; ctx.fillRect(x - 48, gy - 70, 96, 96);
   }
-  return { lampX: x, lampY: baseY - h - 26 };
+  return { lampX: x, lampY: gy - 23 };
 }
 
 // شجرة الكرز

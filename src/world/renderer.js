@@ -1,11 +1,40 @@
 // عارض قرية القمر: طبقتان ثابتتان مخبأتان (بعيدة بشلل/قريبة) + طبقة حية.
 // الكاميرا تتبع سامي؛ الطبقة البعيدة تتحرك بعامل 0.35 لعمق حقيقي.
-import { W, H, VIEW_W, VIEW_H, SKY_H, SEA_TOP, SHORE, MOON, VILLAGE_HOUSES, SAMI_HOUSE,
-         ABANDONED_HOUSE, CHERRY_TREE, pathPoint, stars, fireflies, rng } from './layout.js';
+import { W, H, VIEW_W, VIEW_H, SKY_H, SEA_TOP, SHORE, MOON, BUILDINGS, SAMI_HOUSE,
+         CHERRY_TREE, SAMI_DOORWAY, LIGHTHOUSE, pathPoint, stars, fireflies, rng } from './layout.js';
 import { PAL, dither, poly, mountains, sea, house, ruinedHouse, cliff, lighthouse,
-         cherryTree, beachHut, workshop, market, road, forestEdge } from './scenery.js';
+         cherryTree, beachHut, workshop, market, road, forestEdge, doorway } from './scenery.js';
 
 const STARFIELD = stars(7);
+
+// أصول المباني المولّدة: {sprite: {night: Image, day: Image}} — احتياطيها الرسم الكودي
+const IMGS = {};
+export async function preloadBuildings() {
+  const names = [...new Set([...BUILDINGS.map(b => b.sprite), 'sami-open', 'lighthouse'])];
+  await Promise.all(names.flatMap(n => ['night', 'day'].map(async v => {
+    try {
+      await new Promise(res => {
+        const im = new Image();
+        im.onload = () => { (IMGS[n] ||= {})[v] = im; res(); };
+        im.onerror = () => res();
+        im.src = `assets/buildings/${n}-${v}.png`;
+      });
+    } catch { /* نسخة مفقودة: يستخدم الاحتياطي */ }
+  })));
+}
+const variantOf = phase => (phase === 'day' || phase === 'dawn') ? 'day' : 'night';
+function buildingSprite(name, phase) {
+  const e = IMGS[name];
+  return e ? (e[variantOf(phase)] || e.night || e.day) : null;
+}
+// يرسم أصل مبنى بخط أساس y وعرض w، ويرجع ارتفاعه؛ null لو لا أصل
+function drawBuilding(ctx, b, phase) {
+  const im = buildingSprite(b.sprite, phase);
+  if (!im) return null;
+  const h = b.w * im.naturalHeight / im.naturalWidth;
+  ctx.drawImage(im, b.x - b.w / 2, b.y - h, b.w, h);
+  return h;
+}
 const FLIES = fireflies(21);
 const farCache = new Map(), nearCache = new Map();
 
@@ -57,14 +86,15 @@ function farLayer(phase) {
 }
 
 // الطبقة القريبة: أرض + جرفان + قرية + طريق + شجرة + غابة
-function nearLayer(phase, doorOpen) {
-  const key = phase + (doorOpen ? ':open' : '');
+function nearLayer(phase, front = false) {
+  const key = phase + (front ? ':front' : ':back');
   if (nearCache.has(key)) return nearCache.get(key);
   const P = PAL[phase];
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
 
+  if (!front) {
   // الأرض: منحدر من الشاطئ إلى قاعدة الجرف الشرقي
   poly(ctx, [[-6, SHORE + 10], [120, SHORE - 2], [300, SHORE + 18], [480, SHORE + 4],
              [610, SHORE - 12], [826, SHORE - 24], [826, H + 6], [-6, H + 6]], P.grassB);
@@ -86,16 +116,31 @@ function nearLayer(phase, doorOpen) {
 
   // الطريق أولًا ثم البيوت فوق حوافه العليا
   road(ctx, P);
-
-  const chimneys = [];
-  for (const h of VILLAGE_HOUSES) {
-    const r = house(ctx, P, h, phase);
-    if (r.lit) chimneys.push(r);
   }
-  const sh = house(ctx, P, { ...SAMI_HOUSE, roof: 'gable', tone: 2, lit: true }, phase, doorOpen);
-  chimneys.push({ chimneyX: sh.chimneyX, chimneyY: sh.chimneyY });
-  ruinedHouse(ctx, P, ABANDONED_HOUSE);
-  workshop(ctx, P, phase); market(ctx, P, phase); beachHut(ctx, P, phase);
+
+  // مبانٍ مولّدة مرتبة بالعمق (الأبعد أولًا) مع بقعة أرض مهترئة تربطها بالموقع
+  const chimneys = [];
+  const fallback = {
+    housea: b => house(ctx, P, { ...b, tone: 0, lit: true }, phase),
+    houseb: b => house(ctx, P, { ...b, tone: 1, lit: true }, phase),
+    stone:  b => house(ctx, P, { ...b, tone: 2, lit: true }, phase),
+    sami:   b => house(ctx, P, { ...b, tone: 2, lit: true }, phase),
+    ruined: b => ruinedHouse(ctx, P, b),
+    workshop: b => workshop(ctx, P, phase),
+    market: b => market(ctx, P, phase),
+    beachhut: b => beachHut(ctx, P, phase),
+  };
+  for (const b of [...BUILDINGS].filter(b => !!b.front === front).sort((a, z) => a.y - z.y)) {
+    ctx.fillStyle = P.pathA; ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + 2, b.w / 2 + 10, 7, 0, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    const h = drawBuilding(ctx, b, phase);
+    if (h === null) fallback[b.sprite]?.(b);
+    if (b.smoke) {
+      const hh = h ?? b.w * 0.75;
+      chimneys.push({ chimneyX: b.x + b.smoke[0] * b.w, chimneyY: b.y + b.smoke[1] * hh });
+    }
+  }
   cherryTree(ctx, P);
 
   // أعمدة فوانيس على الطريق
@@ -110,13 +155,49 @@ function nearLayer(phase, doorOpen) {
   return nearCache.get(key);
 }
 
-// الإطار الكامل. env: {phase, heroT, lamp, flicker, reduceMotion, camX, doorOpen, beamAngle}
-export function drawScene(ctx, w, h, time = 0, env = {}) {
+// الإطار الكامل. env: {phase, heroT, lamp, flicker, reduceMotion, camX, doorT, beamAngle}
+// stage: 'full' (افتراضي) | 'back' (حتى قبل الممثلين) | 'front' (المباني الأمامية والمؤثرات)
+export function drawScene(ctx, w, h, time = 0, env = {}, stage = 'full') {
+  if (stage === 'front') return drawFrontStage(ctx, w, h, time, env);
+  if (stage === 'back') return drawBackStage(ctx, w, h, time, env);
+  drawBackStage(ctx, w, h, time, env);
+  drawFrontStage(ctx, w, h, time, env);
+}
+
+function drawFrontStage(ctx, w, h, time, env) {
+  const phase = env.phase || 'night';
+  const P = PAL[phase];
+  const camX = env.camX || 0;
+  const night = phase === 'night';
+  const still = env.reduceMotion;
+  const sx = w / VIEW_W, sy = h / VIEW_H;
+  ctx.save(); ctx.scale(sx, sy);
+  ctx.imageSmoothingEnabled = true;
+
+  // المباني الأمامية (الصف الجنوبي): تغطي من يمر خلفها
+  const { cv: nearF } = nearLayer(phase, true);
+  ctx.drawImage(nearF, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+
+  // باب بيت سامي المتحرك: تلاشٍ إلى نسخة «الباب المفتوح» المولّدة (احتياطي: رسم كودي)
+  if (env.doorT > 0.01) {
+    const openIm = buildingSprite('sami-open', phase);
+    ctx.save(); ctx.translate(-camX, 0); ctx.globalAlpha = env.doorT;
+    if (openIm) {
+      const hh = SAMI_HOUSE.w * openIm.naturalHeight / openIm.naturalWidth;
+      ctx.drawImage(openIm, SAMI_HOUSE.x - SAMI_HOUSE.w / 2, SAMI_HOUSE.y - hh, SAMI_HOUSE.w, hh);
+    } else doorway(ctx, P, SAMI_DOORWAY, env.doorT, phase);
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+  drawEffects(ctx, phase, P, time, env, camX, night, still);
+  ctx.restore();
+}
+
+function drawBackStage(ctx, w, h, time, env) {
   const phase = env.phase || 'night';
   const P = PAL[phase];
   const camX = env.camX || 0;
   const { cv: far } = farLayer(phase);
-  const { cv: near, chimneys } = nearLayer(phase, env.doorOpen);
+  const { cv: near, chimneys } = nearLayer(phase, false);
   const sx = w / VIEW_W, sy = h / VIEW_H;
   ctx.save(); ctx.scale(sx, sy);
   ctx.imageSmoothingEnabled = false;
@@ -164,7 +245,7 @@ export function drawScene(ctx, w, h, time = 0, env = {}) {
     }
   }
 
-  // قريب
+  // قريب (الطبقة الخلفية: أرض وطريق ومبانٍ شمالية)
   ctx.drawImage(near, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);
 
   // دخان المداخن
@@ -180,10 +261,26 @@ export function drawScene(ctx, w, h, time = 0, env = {}) {
     ctx.globalAlpha = 1;
   }
 
-  // المنارة + مصباحها (حية لأن وميضها يتغير) — بإحداثيات العالم
-  ctx.save(); ctx.translate(-camX, 0);
-  const lampP = lighthouse(ctx, P, phase, env.flicker ? 1 : (env.lamp ?? 1));
-  ctx.restore();
+  // المنارة + مصباحها (حية لأن وميضها يتغير) — أصل مولّد مع احتياطي كودي
+  const lampOn = (env.flicker || (env.lamp ?? 1) > 0) && phase !== 'day';
+  const lhIm = buildingSprite('lighthouse', phase);
+  let lampP;
+  if (lhIm) {
+    const lhH = 176, lhW = lhH * lhIm.naturalWidth / lhIm.naturalHeight;
+    ctx.save(); ctx.translate(-camX, 0);
+    ctx.drawImage(lhIm, LIGHTHOUSE.x - lhW / 2, LIGHTHOUSE.baseY + 6 - lhH, lhW, lhH);
+    lampP = { lampX: LIGHTHOUSE.x, lampY: LIGHTHOUSE.baseY + 6 - lhH + 40 };
+    if (lampOn) {
+      const g = ctx.createRadialGradient(lampP.lampX, lampP.lampY, 2, lampP.lampX, lampP.lampY, (env.lamp ?? 1) === 2 ? 46 : 22);
+      g.addColorStop(0, 'rgba(255,200,87,.55)'); g.addColorStop(1, 'rgba(255,200,87,0)');
+      ctx.fillStyle = g; ctx.fillRect(lampP.lampX - 48, lampP.lampY - 48, 96, 96);
+    }
+    ctx.restore();
+  } else {
+    ctx.save(); ctx.translate(-camX, 0);
+    lampP = lighthouse(ctx, P, phase, env.flicker ? 1 : (env.lamp ?? 1));
+    ctx.restore();
+  }
   lampP.lampX -= camX;
 
   if ((env.lamp ?? 0) >= 2 && (night || phase === 'dusk')) {
@@ -227,6 +324,27 @@ export function drawScene(ctx, w, h, time = 0, env = {}) {
     const g = ctx.createRadialGradient(p.x - camX + 12, p.y - 28, 1, p.x - camX + 12, p.y - 28, 18);
     g.addColorStop(0, 'rgba(255,200,87,.4)'); g.addColorStop(1, 'rgba(255,200,87,0)');
     ctx.fillStyle = g; ctx.fillRect(p.x - camX - 6, p.y - 46, 36, 36);
+  }
+
+  ctx.restore();
+}
+
+// المؤثرات الأمامية: شعاع المنارة + يراعات + بتلات + تظليل الحواف
+function drawEffects(ctx, phase, P, time, env, camX, night, still) {
+  if ((env.lamp ?? 0) >= 2 && (night || phase === 'dusk')) {
+    const lampP = env._lampP || { lampX: 0, lampY: 0 }; // lampX بإحداثيات الشاشة مسبقًا
+    const ang = env.beamAngle ?? (time / 2600);
+    const bx = Math.cos(ang), by = Math.sin(ang) * 0.25;
+    ctx.save(); ctx.translate(lampP.lampX, lampP.lampY);
+    for (const ddir of [1, -1]) {
+      const g = ctx.createLinearGradient(0, 0, ddir * 190 * Math.abs(bx) || ddir * 60, by * 190);
+      g.addColorStop(0, 'rgba(255,220,140,.30)'); g.addColorStop(1, 'rgba(255,220,140,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(0, -3);
+      ctx.lineTo(ddir * 190 * bx, by * 190 - 16); ctx.lineTo(ddir * 190 * bx, by * 190 + 16);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
   }
 
   // يراعات الليل

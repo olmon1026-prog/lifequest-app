@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { topbarHTML } from '../ui/topbar.js';
 import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, nearestPathT,
          cameraFor, destinationProgress, destinationState, heroT } from './layout.js';
-import { drawScene } from './renderer.js';
+import { drawScene, preloadBuildings } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
 import { dayPhase, routineFor, planScenes, newCompleteEvents, nextStoryScene, shouldRestAtHome } from './life.js';
@@ -22,7 +22,7 @@ bondok.speed = 0.075;
 const engine = {
   queue: [], active: null, phaseEnds: 0, digest: [], wanderAt: 0,
   lastShown: JSON.parse(globalThis.localStorage?.getItem('lq-engine-v1') || 'null'),
-  resting: false, doorOpen: false, camX: 0,
+  resting: false, doorT: 0, doorTarget: 0, enterAt: 0, camX: 0,
 };
 function saveEngine() {
   try { localStorage.setItem('lq-engine-v1', JSON.stringify(engine.lastShown)); } catch {}
@@ -60,6 +60,7 @@ export async function renderWorld(app, state) {
       const bd = await loadSheet('assets/characters/bondok/walk-side.png', await (await fetch('assets/characters/bondok/walk-side.json')).json());
       sheets = { sami: sm, bondok: bd };
     } catch { sheets = { sami: null, bondok: null }; }
+    await preloadBuildings();
   }
 
   // لافتات الوجهات: تُبنى مرة وتُزاح مع الكاميرا كل إطار
@@ -139,18 +140,26 @@ export async function renderWorld(app, state) {
     const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
     engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
 
+    // حركة الباب السلسة نحو هدفها
+    if (engine.doorT !== engine.doorTarget) {
+      const dd = Math.sign(engine.doorTarget - engine.doorT) * dt / 260;
+      engine.doorT = Math.abs(engine.doorTarget - engine.doorT) <= Math.abs(dd)
+        ? engine.doorTarget : engine.doorT + dd;
+    }
+
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: story.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
-      camX: engine.camX, doorOpen: engine.doorOpen,
+      camX: engine.camX, doorT: engine.doorT,
     };
-    drawScene(ctx, box.width, box.height, now, env);
+    drawScene(ctx, box.width, box.height, now, env, 'back');
     ctx.save(); ctx.translate(offX - engine.camX * scale, offY); ctx.scale(scale, scale);
     if (sheets) {
       bondok.draw(ctx, sheets.bondok, now);
       sami.draw(ctx, sheets.sami, now);
     }
     ctx.restore();
+    drawScene(ctx, box.width, box.height, now, env, 'front');
 
     // إزاحة اللافتات مع الكاميرا
     for (const { el, d } of labelEls) {
@@ -202,7 +211,7 @@ function startStory(s, state) {
       break;
     }
     case 'abandoned':
-      sami.goTo(530, 600, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
+      sami.goTo(545, 622, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
       break;
     case 'notebook':
       sami.goTo(SPOTS.tree.x + 10, SPOTS.tree.y, () => {
@@ -225,31 +234,32 @@ function chainWalk(actor, points, done) {
   actor.goTo(p.x, p.y, () => chainWalk(actor, rest, done));
 }
 
-// الراحة في البيت: يمشي للباب، ينفتح، يدخل ويتلاشى، يبقى مستريحًا
+// الراحة في البيت بدقة: بندق يصل أولًا، سامي يقف أمام الباب، الباب ينفتح بسلاسة،
+// يدخلان متلاشيين ويختفيان تمامًا، ثم يُغلق الباب. لا أثر لهما طوال الراحة.
 function goRestHome() {
   engine.resting = 'entering';
-  sami.goTo(SAMI_DOOR.x + 36, SAMI_DOOR.y + 12, () => {
-    sami.goTo(SAMI_DOOR.x, SAMI_DOOR.y + 4, () => {
-      engine.doorOpen = true;
-      setTimeout(() => {
-        sami.alpha = 0;
-        sami.visible = false;
-        engine.resting = true;
-        setTimeout(() => { engine.doorOpen = false; }, 600);
-      }, 450);
+  bondok.goTo(SAMI_DOOR.x + 4, SAMI_DOOR.y + 2, () => {
+    sami.goTo(SAMI_DOOR.x, SAMI_DOOR.y + 3, () => {
+      engine.doorTarget = 1;
+      engine.enterAt = performance.now() + 420; // بعد اكتمال فتح الباب
     });
   });
-  sami.alpha = 1;
 }
 
-// يخرج من البيت عند حدث جديد أو روتين يتطلب مكانًا
+// يخرج من البيت عند حدث جديد: الباب ينفتح، يطلع سامي ثم بندق، الباب يقفل وراءهما
 function leaveHome() {
   if (!engine.resting) return;
-  engine.resting = false;
-  engine.doorOpen = true;
-  sami.x = SAMI_DOOR.x; sami.y = SAMI_DOOR.y + 4;
-  sami.visible = true; sami.alpha = 1; sami.pose = 'idle';
-  setTimeout(() => { engine.doorOpen = false; }, 900);
+  engine.resting = 'leaving';
+  engine.doorTarget = 1;
+  sami.x = SAMI_DOOR.x; sami.y = SAMI_DOOR.y - 4;
+  sami.visible = true; sami.alpha = 0; sami.pose = 'idle'; sami.fadeTo(1);
+  sami.goTo(SAMI_DOOR.x + 2, SAMI_DOOR.y + 18);
+  bondok.x = SAMI_DOOR.x; bondok.y = SAMI_DOOR.y - 2;
+  bondok.visible = true; bondok.alpha = 0; bondok.fadeTo(1);
+  bondok.goTo(SAMI_DOOR.x + 18, SAMI_DOOR.y + 12, () => {
+    engine.doorTarget = 0;
+    engine.resting = false;
+  });
 }
 
 function tickEngine(now) {
@@ -264,6 +274,15 @@ function tickEngine(now) {
       if (a.kind === 'achievement' && !engine.queue.length) goRestHome();
     }
     return;
+  }
+  if (engine.resting === 'entering' && engine.enterAt && now >= engine.enterAt) {
+    engine.enterAt = 0;
+    sami.fadeTo(0); bondok.fadeTo(0); // يتلاشيان داخل البيت
+    engine.resting = 'fading';
+  }
+  if (engine.resting === 'fading' && sami.alpha === 0 && bondok.alpha === 0) {
+    engine.resting = true; // اختفيا تمامًا
+    engine.doorTarget = 0; // الباب يقفل
   }
   if (engine.resting) return; // مستريح: لا روتين يحركه حتى يخرج
   const r = routineFor(new Date());
@@ -281,12 +300,8 @@ function tickEngine(now) {
 
 function tickBondok(now) {
   if (bondok.moving) return;
-  if (sami.pose === 'sleep' || engine.resting) {
-    // ينام عند الباب أثناء راحة سامي
-    if (!engine.resting || Math.hypot(SAMI_DOOR.x + 20 - bondok.x, SAMI_DOOR.y + 10 - bondok.y) < 30) bondok.pose = 'sleep';
-    else bondok.goTo(SAMI_DOOR.x + 20, SAMI_DOOR.y + 10);
-    return;
-  }
+  if (engine.resting) return; // بندق داخل البيت مع سامي — لا يظهر إطلاقًا
+  if (sami.pose === 'sleep') { bondok.pose = 'sleep'; return; }
   if (bondok.pose === 'sleep') bondok.pose = 'idle';
   const d = Math.hypot(sami.x - bondok.x, sami.y - bondok.y);
   if (d > 90) { bondok.pose = 'idle'; bondok.goTo(sami.x + 26, sami.y + 10); return; }
