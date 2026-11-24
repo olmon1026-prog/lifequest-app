@@ -380,6 +380,16 @@ export async function renderWorld(app, state) {
       const fx = vox + (sami.x - engine.camXi) * vsc, fy = offY + (sami.y - 64) * vsc;
       overlayRects.push({ l: fx - 60 * vsc, r: fx + 60 * vsc, t: fy - 46 * vsc, b: fy + 14 * vsc });
     }
+    // وسم «سامي هنا»/سهم الحافة في وضع الاستكشاف: اللافتات تتجنبه كالتنبيهات — لا تداخل نصي فوقه
+    if (view.manual && sami.visible) {
+      const bx = vox + (sami.x - engine.camXi) * vsc, by = offY + (sami.y - 30) * vsc;
+      if (bx >= -10 && bx <= box.width + 10 && by >= 50 && by <= box.height - 60)
+        overlayRects.push({ l: bx - 34, r: bx + 34, t: by - 38, b: by - 14 }); // نص «سامي هنا» فوق الحلقة
+      else {
+        const ex = Math.max(26, Math.min(box.width - 26, bx)), ey = Math.max(72, Math.min(box.height - 92, by));
+        overlayRects.push({ l: ex - 24, r: ex + 24, t: ey - 12, b: ey + 30 }); // سهم الحافة وكلمة «سامي»
+      }
+    }
     const lblScale = vsc < scale * 0.8 ? Math.max(0.6, vsc / scale) : 1;
     const placedLbls = []; // في وضع الخريطة: منع تراكب اللافتات بعضها فوق بعض بإزاحة رأسية متبادلة
     for (const { el, d } of labelEls) {
