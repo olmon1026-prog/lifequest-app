@@ -112,7 +112,7 @@ export async function renderWorld(app, state) {
   const fresh = newCompleteEvents(state.events, engine.lastShown?.eventId ?? null, tStr);
   if (fresh.length) {
     const { live, digest } = planScenes(fresh, state.items);
-    engine.queue.push(...live.map(s => ({ type: 'achievement', ...s })));
+    engine.queue.push(...live.map(s => ({ type: 'achievement', ...s, fresh: true }))); // fresh: حدث يُعرض لأول مرة فقط — شرط النص العائم
     engine.digest.push(...digest);
     engine.lastShown = { eventId: fresh[fresh.length - 1].id, day: tStr };
     saveEngine();
@@ -193,7 +193,8 @@ export async function renderWorld(app, state) {
       ctx.fillRect(gx - 76 * scale, gy - 106 * scale, 152 * scale, 152 * scale);
       // نص الإنجاز العائم فوق سامي: مرة واحدة عند بدء act، بالمقدار المسجل فعليًا لحدث الإكمال نفسه
       // (المشهد إعادة تمثيل بصرية ولا يمنح نقاطًا جديدة)، وبلا رقم إن لم يوجد مقدار مؤكد
-      if (engine.active.actT0) {
+      // لا نص عائم إلا لحدث يُعرض لأول مرة (fresh): إعادة العرض لا توحي بكسب جديد حتى لو الرقم صحيح
+      if (engine.active.actT0 && engine.active.scene?.fresh) {
         const sc = engine.active.scene || {};
         const el = now - engine.active.actT0, DUR = 2600;
         if (el < DUR) {
@@ -201,7 +202,7 @@ export async function renderWorld(app, state) {
           const rise = reduce ? 0 : 34 * Math.min(1, k * 1.15); // بلا حركة في وضع تقليل الحركة
           const alpha = reduce ? (k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25) : Math.min(1, 5 * k) * (1 - Math.max(0, (k - 0.7) / 0.3));
           const tx = offX + (sami.x - engine.camXi) * scale, ty = offY + (sami.y - 64 - rise) * scale;
-          const txt = sc.xp ? `+${arNum(sc.xp)} XP` : 'أُنجز ✓';
+          const txt = sc.xp ? `\u2066+${arNum(sc.xp)} XP\u2069` : 'أُنجز ✓'; // عزل LTR: تُقرأ +١٠ XP لا XP ١٠+
           ctx.save();
           ctx.globalAlpha = alpha;
           ctx.font = `bold ${Math.round(15 * scale)}px 'Tajawal', sans-serif`;
