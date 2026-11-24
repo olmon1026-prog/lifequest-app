@@ -183,13 +183,36 @@ export async function renderWorld(app, state) {
     // وهج الوجهة أثناء لحظة الإنجاز: تغذية راجعة مرئية فورية تقرأ بلا شرح (مصدر Habitica/Octalysis)
     if (engine.active?.kind === 'achievement' && engine.active.step === 'act' && engine.active.dest) {
       const d = engine.active.dest;
-      const pulse = reduce ? 0.3 : 0.25 + 0.15 * Math.sin(now / 300);
+      const pulse = reduce ? 0.45 : 0.38 + 0.18 * Math.sin(now / 300);
       const gx = offX + (d.x - engine.camXi) * scale, gy = offY + d.y * scale;
-      const g = ctx.createRadialGradient(gx, gy - 30 * scale, 4, gx, gy - 30 * scale, 64 * scale);
+      const g = ctx.createRadialGradient(gx, gy - 30 * scale, 4, gx, gy - 30 * scale, 76 * scale);
       g.addColorStop(0, `rgba(255,200,87,${pulse})`);
+      g.addColorStop(0.55, `rgba(255,190,90,${pulse * 0.55})`);
       g.addColorStop(1, 'rgba(255,200,87,0)');
       ctx.fillStyle = g;
-      ctx.fillRect(gx - 64 * scale, gy - 94 * scale, 128 * scale, 128 * scale);
+      ctx.fillRect(gx - 76 * scale, gy - 106 * scale, 152 * scale, 152 * scale);
+      // نص الإنجاز العائم فوق سامي: مرة واحدة عند بدء act، بالمقدار المسجل فعليًا لحدث الإكمال نفسه
+      // (المشهد إعادة تمثيل بصرية ولا يمنح نقاطًا جديدة)، وبلا رقم إن لم يوجد مقدار مؤكد
+      if (engine.active.actT0) {
+        const sc = engine.active.scene || {};
+        const el = now - engine.active.actT0, DUR = 2600;
+        if (el < DUR) {
+          const k = el / DUR;
+          const rise = reduce ? 0 : 34 * Math.min(1, k * 1.15); // بلا حركة في وضع تقليل الحركة
+          const alpha = reduce ? (k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25) : Math.min(1, 5 * k) * (1 - Math.max(0, (k - 0.7) / 0.3));
+          const tx = offX + (sami.x - engine.camXi) * scale, ty = offY + (sami.y - 64 - rise) * scale;
+          const txt = sc.xp ? `+${arNum(sc.xp)} XP` : 'أُنجز ✓';
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.font = `bold ${Math.round(15 * scale)}px 'Tajawal', sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.lineWidth = 4 * scale; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
+          ctx.strokeText(txt, tx, ty); // إطار داكن يضمن الوضوح نهارًا
+          ctx.fillStyle = '#ffe9a8';
+          ctx.fillText(txt, tx, ty);
+          ctx.restore();
+        }
+      }
     }
 
     // إزاحة اللافتات مع الكاميرا
@@ -206,6 +229,11 @@ export async function renderWorld(app, state) {
       const o = app.querySelector(sel);
       if (o && o.innerHTML && o.offsetHeight > 0)
         overlayRects.push({ l: o.offsetLeft - 4, r: o.offsetLeft + o.offsetWidth + 4, t: o.offsetTop, b: o.offsetTop + o.offsetHeight });
+    }
+    // أثناء نص الإنجاز العائم: اللافتات تتجنب منطقته حتى لا تغطيه (يُرسم على canvas تحت لافتات DOM)
+    if (engine.active?.kind === 'achievement' && engine.active.step === 'act' && engine.active.actT0 && now - engine.active.actT0 < 2600) {
+      const fx = offX + (sami.x - engine.camXi) * scale, fy = offY + (sami.y - 64) * scale;
+      overlayRects.push({ l: fx - 60 * scale, r: fx + 60 * scale, t: fy - 46 * scale, b: fy + 14 * scale });
     }
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
@@ -269,6 +297,7 @@ function startAchievement(s) {
   sami.goTo(dest.spot.x, dest.spot.y, () => {
     engine.active.step = 'act';
     sami.pose = ACTIVITY_BY_DEST[dest.id] || 'work';
+    engine.active.actT0 = performance.now(); // بداية لحظة الإنجاز (للنص العائم لمرة واحدة)
     engine.phaseEnds = performance.now() + Math.max(4000, s.durationMs - 4000);
   });
 }

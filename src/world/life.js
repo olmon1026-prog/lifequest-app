@@ -80,6 +80,9 @@ export function planScenes(completeEvents, items, { maxLive = MAX_LIVE_SCENES } 
       title: item?.title || ev.title || 'إنجاز',
       destination: destinationFor(item, ev.id),
       durationMs: sceneDurationMs(item),
+      // XP المسجل فعليًا لهذا الحدث (من سجل الإكمال نفسه) — يُعرض في لحظة المشهد،
+      // ولا يُعرض رقم إن غاب أو كان صفرًا (إشارة بلا رقم)
+      xp: typeof ev.xp === 'number' && ev.xp > 0 ? ev.xp : null,
       at: tsOf(ev),
     };
     (live.length < maxLive ? live : digest).push(scene);
