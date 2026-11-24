@@ -60,11 +60,17 @@ export function sceneDurationMs(item) {
   return Math.round(t / 500) * 500;
 }
 
+// مخطط الحدث الحقيقي (repo.js): ts رقم (مللي ثانية) و day نص 'YYYY-MM-DD'.
+// ندعم at النصي القديم كاحتياط حتى لا تسقط بيانات قديمة، لكن المخطط الحقيقي هو ts/day.
+const tsOf = (e) => typeof e.ts === 'number' ? e.ts : (typeof e.at === 'string' ? Date.parse(e.at) || 0 : 0);
+const dayOf = (e) => typeof e.day === 'string' ? e.day : (typeof e.at === 'string' ? e.at.slice(0, 10) : null);
+const byTime = (a, b) => (tsOf(a) - tsOf(b)) || (String(a.id) < String(b.id) ? -1 : 1);
+
 // تخطيط مشاهد اليوم من أحداث الإنجاز الحقيقية (kind='complete') المرتبة زمنيًا.
 // يعيد: live (حتى MAX_LIVE_SCENES) + digest (الباقي للتلخيص) — لا حذف لإنجاز.
 export function planScenes(completeEvents, items, { maxLive = MAX_LIVE_SCENES } = {}) {
   const byId = new Map(items.map(i => [i.id, i]));
-  const sorted = [...completeEvents].sort((a, b) => String(a.at) < String(b.at) ? -1 : 1);
+  const sorted = [...completeEvents].sort(byTime);
   const live = [], digest = [];
   for (const ev of sorted) {
     const item = byId.get(ev.itemId) || null;
@@ -74,7 +80,7 @@ export function planScenes(completeEvents, items, { maxLive = MAX_LIVE_SCENES } 
       title: item?.title || ev.title || 'إنجاز',
       destination: destinationFor(item, ev.id),
       durationMs: sceneDurationMs(item),
-      at: ev.at,
+      at: tsOf(ev),
     };
     (live.length < maxLive ? live : digest).push(scene);
   }
@@ -83,17 +89,16 @@ export function planScenes(completeEvents, items, { maxLive = MAX_LIVE_SCENES } 
 
 // أحداث الإنجاز التي لم تُعرض بعد اليوم (مقارنة بآخر حدث عُرض)
 export function newCompleteEvents(events, lastShownEventId, dayStr) {
-  const seen = lastShownEventId == null ? Infinity : null;
   let passedLast = lastShownEventId == null;
   const out = [];
-  const completes = events.filter(e => e.kind === 'complete')
-    .sort((a, b) => String(a.at) < String(b.at) ? -1 : 1);
+  const completes = events.filter(e => e.kind === 'complete').sort(byTime);
   for (const e of completes) {
     if (!passedLast) {
       if (e.id === lastShownEventId) passedLast = true;
       continue;
     }
-    if (dayStr && typeof e.at === 'string' && !e.at.startsWith(dayStr)) continue;
+    const d = dayOf(e);
+    if (dayStr && d && d !== dayStr) continue; // نستبعد فقط ما نعرف يقينًا أنه ليوم آخر
     out.push(e);
   }
   return out;

@@ -48,7 +48,8 @@ t('sceneDurationMs: دائمًا بين 8 و15 ثانية (زمن منطقي)', 
   assert.ok(sceneDurationMs({ priority: 3, type: 'project' }) > sceneDurationMs({ priority: 1, type: 'task' }));
 });
 
-const ev = (i, at) => ({ id: 'e' + i, kind: 'complete', itemId: 'i' + i, at: at || `2026-11-24T10:0${i}:00` });
+const ev = (i, ts) => ({ id: 'e' + i, kind: 'complete', itemId: 'i' + i,
+  ts: ts ?? Date.parse(`2026-11-24T10:0${i}:00Z`), day: '2026-11-24' });
 const item = (i, extra = {}) => ({ id: 'i' + i, title: 'مهمة ' + i, area: 'work', priority: 1, type: 'task', ...extra });
 
 t('planScenes: حتى 5 مشاهد حية والزيادة للملخص، بلا حذف لأي إنجاز', () => {
@@ -73,14 +74,46 @@ t('planScenes: 3 إنجازات = 3 مشاهد حية ولا ملخص', () => {
 
 t('newCompleteEvents: فقط أحداث complete بعد آخر معروض ومن نفس اليوم', () => {
   const events = [
-    { id: 'a', kind: 'complete', itemId: 'x', at: '2026-11-24T09:00' },
-    { id: 'b', kind: 'create', itemId: 'y', at: '2026-11-24T09:30' },
-    { id: 'c', kind: 'complete', itemId: 'z', at: '2026-11-24T10:00' },
-    { id: 'd', kind: 'complete', itemId: 'w', at: '2026-11-23T22:00' }, // أمس
+    { id: 'a', kind: 'complete', itemId: 'x', ts: Date.parse('2026-11-24T09:00Z'), day: '2026-11-24' },
+    { id: 'b', kind: 'create', itemId: 'y', ts: Date.parse('2026-11-24T09:30Z'), day: '2026-11-24' },
+    { id: 'c', kind: 'complete', itemId: 'z', ts: Date.parse('2026-11-24T10:00Z'), day: '2026-11-24' },
+    { id: 'd', kind: 'complete', itemId: 'w', ts: Date.parse('2026-11-23T22:00Z'), day: '2026-11-23' }, // أمس
   ];
   assert.deepEqual(newCompleteEvents(events, null, '2026-11-24').map(e => e.id), ['a', 'c']);
   assert.deepEqual(newCompleteEvents(events, 'a', '2026-11-24').map(e => e.id), ['c']);
   assert.deepEqual(newCompleteEvents(events, 'c', '2026-11-24'), []);
+});
+
+t('انحدار: فلتر اليوم يعمل على المخطط الحقيقي (ts/day بلا at) — كان ميتًا في الإنتاج', () => {
+  // قبل الإصلاح كان الفلتر يقرأ e.at غير الموجود، فتتسلل إنجازات الأيام القديمة
+  // لطابور اليوم عند أول تشغيل (lastShown = null).
+  const events = [
+    { id: 'old1', kind: 'complete', itemId: 'x', ts: Date.parse('2026-11-20T09:00Z'), day: '2026-11-20' },
+    { id: 'old2', kind: 'complete', itemId: 'y', ts: Date.parse('2026-11-21T09:00Z'), day: '2026-11-21' },
+    { id: 'now1', kind: 'complete', itemId: 'z', ts: Date.parse('2026-11-24T09:00Z'), day: '2026-11-24' },
+  ];
+  assert.deepEqual(newCompleteEvents(events, null, '2026-11-24').map(e => e.id), ['now1']);
+});
+
+t('انحدار: planScenes يرتب زمنيًا بـ ts حتى لو الدخل مخلوط', () => {
+  // قبل الإصلاح كان المقارن String(at) ولا يرجع 0 أبدًا — ترتيب غير مضمون.
+  const a = { id: 'a', kind: 'complete', itemId: 'x', ts: 3000, day: '2026-11-24' };
+  const b = { id: 'b', kind: 'complete', itemId: 'y', ts: 1000, day: '2026-11-24' };
+  const c = { id: 'c', kind: 'complete', itemId: 'z', ts: 2000, day: '2026-11-24' };
+  const items = [item(0), item(1), item(2)];
+  const { live } = planScenes([a, b, c], items);
+  assert.deepEqual(live.map(s => s.eventId), ['b', 'c', 'a']);
+  assert.deepEqual(live.map(s => s.at), [1000, 2000, 3000]);
+});
+
+t('احتياط: أحداث قديمة بصيغة at النصية لا تزال تعمل', () => {
+  const events = [
+    { id: 'p', kind: 'complete', itemId: 'x', at: '2026-11-23T22:00' },
+    { id: 'q', kind: 'complete', itemId: 'y', at: '2026-11-24T09:00' },
+  ];
+  assert.deepEqual(newCompleteEvents(events, null, '2026-11-24').map(e => e.id), ['q']);
+  const { live } = planScenes(events, [item(0), item(1)]);
+  assert.deepEqual(live.map(s => s.eventId), ['p', 'q']);
 });
 
 t('لا إنجازات وهمية: الأحداث غير complete لا تنتج مشاهد', () => {
