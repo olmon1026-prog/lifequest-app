@@ -34,6 +34,7 @@ const FILES = [
   'src/world/story.js',
   'src/world/actors.js',
   'src/world/scenery.js',
+  'src/world/destcard.js',
   'src/world/layout.js',
   'src/world/renderer.js',
   'src/world/sprites.js',

@@ -1,26 +1,28 @@
-// تبويب العالم: قرية القمر الحية — مشهد بكسل + محرك حياة (روتين + مشاهد إنجاز + قصة).
+// تبويب العالم: قرية القمر الحية — عالم 820×640 بكاميرا تتبع سامي + محرك حياة.
 import { store } from '../store.js';
 import { topbarHTML } from '../ui/topbar.js';
-import { W, H, DESTINATIONS, SPOTS, pathPoint, destinationProgress, destinationState, heroT } from './layout.js';
+import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, nearestPathT,
+         cameraFor, destinationProgress, destinationState, heroT } from './layout.js';
 import { drawScene } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
-import { dayPhase, routineFor, planScenes, newCompleteEvents, nextStoryScene, MAX_LIVE_SCENES } from './life.js';
+import { dayPhase, routineFor, planScenes, newCompleteEvents, nextStoryScene, shouldRestAtHome } from './life.js';
 import { loadStory, markStory } from './story.js';
 import { sounds, unlockAudio, setMuted, vibrate } from './sound.js';
 import { openAddSheet } from '../ui/sheet.js';
-import { arNum, fmtDateAr, todayStr } from '../core/dates.js';
+import { arNum, todayStr } from '../core/dates.js';
+import { showDestinationCard } from './destcard.js';
 
 let raf = null, sheets = null;
-const sami = new Actor('sami', SPOTS.square.x, SPOTS.square.y, 1);
-const bondok = new Actor('bondok', SPOTS.square.x + 30, SPOTS.square.y + 12, 0.7);
-bondok.speed = 0.07;
+const sami = new Actor('sami', SPOTS.square.x, SPOTS.square.y, 0.5);   // ~٥٠px ≈ قامة الباب
+const bondok = new Actor('bondok', SPOTS.square.x + 30, SPOTS.square.y + 12, 0.38);
+bondok.speed = 0.075;
 
 // حالة المحرك عبر إعادة الرسم
 const engine = {
-  queue: [], active: null, phaseEnds: 0, step: null,
+  queue: [], active: null, phaseEnds: 0, digest: [], wanderAt: 0,
   lastShown: JSON.parse(globalThis.localStorage?.getItem('lq-engine-v1') || 'null'),
-  digest: [], wanderAt: 0,
+  resting: false, doorOpen: false, camX: 0,
 };
 function saveEngine() {
   try { localStorage.setItem('lq-engine-v1', JSON.stringify(engine.lastShown)); } catch {}
@@ -49,8 +51,8 @@ export async function renderWorld(app, state) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = box.width * dpr; canvas.height = box.height * dpr;
   ctx.scale(dpr, dpr);
-  const scale = Math.min(box.width / W, box.height / H);
-  const offX = (box.width - W * scale) / 2, offY = (box.height - H * scale) / 2;
+  const scale = Math.min(box.width / VIEW_W, box.height / VIEW_H);
+  const offX = (box.width - VIEW_W * scale) / 2, offY = (box.height - VIEW_H * scale) / 2;
 
   if (!sheets) {
     try {
@@ -60,15 +62,15 @@ export async function renderWorld(app, state) {
     } catch { sheets = { sami: null, bondok: null }; }
   }
 
-  // لافتات الوجهات
+  // لافتات الوجهات: تُبنى مرة وتُزاح مع الكاميرا كل إطار
   const labels = app.querySelector('#labels');
   labels.innerHTML = '';
+  const labelEls = [];
   for (const d of DESTINATIONS) {
     const p = destinationProgress(state.items, d.id);
     const st = destinationState(p);
     const el = document.createElement('div');
-    const lx = offX + d.x * scale, ly = offY + d.y * scale;
-    el.style.cssText = `position:absolute;left:${lx - 44}px;top:${ly + 8}px;width:88px;text-align:center;
+    el.style.cssText = `position:absolute;width:88px;text-align:center;
       background:rgba(14,34,56,.85);color:${st.key === 'locked' ? '#8FA8B8' : '#CFF5EA'};
       border:2px solid ${st.key === 'done' ? '#FFC857' : st.key === 'open' ? '#7FE0CF' : '#33475C'};
       border-radius:10px;padding:3px 4px;font-size:11px;pointer-events:auto;cursor:pointer`;
@@ -76,6 +78,7 @@ export async function renderWorld(app, state) {
       <div style="font-size:10px;opacity:.9">${p.ratio === null ? st.label : `${arNum(p.done)}/${arNum(p.total)} · ${st.label}`}</div>`;
     el.onclick = () => { unlockAudio(); sounds.click(); showDestinationCard(app, d, p, st, state); };
     labels.appendChild(el);
+    labelEls.push({ el, d });
   }
 
   // شريط المهمة التالية
@@ -96,8 +99,8 @@ export async function renderWorld(app, state) {
   }
   app.querySelector('#fab').onclick = () => { unlockAudio(); openAddSheet({ dueDate: tStr }); };
 
-  // بناء طابور المشاهد من الإنجازات الجديدة (لا مشهد بلا حدث complete حقيقي)
-  if (engine.lastShown?.day !== tStr) engine.digest = []; // يوم جديد = ملخص جديد
+  // طابور المشاهد من الإنجازات الجديدة (لا مشهد بلا حدث complete حقيقي)
+  if (engine.lastShown?.day !== tStr) engine.digest = [];
   const completions = state.events.filter(e => e.kind === 'complete').length;
   const fresh = newCompleteEvents(state.events, engine.lastShown?.eventId ?? null, tStr);
   if (fresh.length) {
@@ -108,7 +111,6 @@ export async function renderWorld(app, state) {
     saveEngine();
   }
 
-  // شريط «ما حدث اليوم» للزيادة عن ٥ مشاهد
   const dg = app.querySelector('#digest');
   if (engine.digest.length) {
     dg.innerHTML = `<div style="background:rgba(14,34,56,.88);border:2px solid #7FE0CF;border-radius:10px;
@@ -125,33 +127,43 @@ export async function renderWorld(app, state) {
     const dt = Math.min(50, now - last); last = now;
     const reduce = store.state.settings.reduceMotion;
 
-    // ١) مشهد قصصي مستحق يتقدم على الطابور
+    // الأولوية: مشهد قصصي مستحق ثم طابور الإنجازات ثم الروتين/الراحة
     if (!engine.active && storyNext && !engine.queue.length) startStory(storyNext, state);
-    // ٢) التالي من طابور الإنجازات
     if (!engine.active && engine.queue.length) startAchievement(engine.queue.shift());
-    // ٣) المحرك
-    tickEngine(now, dt, state);
-    // بندق: يتبع سامي عن بُعد أو يتجول
+    tickEngine(now, dt);
     tickBondok(now, dt);
 
     sami.update(dt, now); bondok.update(dt, now);
 
+    // الكاميرا تتبع سامي بنعومة
+    const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
+    engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
+
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: story.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
+      camX: engine.camX, doorOpen: engine.doorOpen,
     };
     drawScene(ctx, box.width, box.height, now, env);
-    ctx.save(); ctx.translate(offX, offY); ctx.scale(scale, scale);
+    ctx.save(); ctx.translate(offX - engine.camX * scale, offY); ctx.scale(scale, scale);
     if (sheets) {
       bondok.draw(ctx, sheets.bondok, now);
       sami.draw(ctx, sheets.sami, now);
     }
     ctx.restore();
 
+    // إزاحة اللافتات مع الكاميرا
+    for (const { el, d } of labelEls) {
+      const lx = offX + (d.x - engine.camX) * scale, ly = offY + d.y * scale;
+      el.style.left = (lx - 44) + 'px';
+      el.style.top = (ly + 8) + 'px';
+      el.style.display = (lx < -60 || lx > box.width + 60) ? 'none' : '';
+    }
+
     // شريحة نشاط سامي
     const chip = app.querySelector('#sami-doing');
     if (chip) {
-      const txt = engine.active?.label || routineFor(new Date()).label;
+      const txt = engine.resting ? 'يستريح في بيته 🏠' : (engine.active?.label || routineFor(new Date()).label);
       if (chip.dataset.v !== txt) {
         chip.dataset.v = txt;
         chip.innerHTML = `<span style="background:rgba(14,34,56,.85);border:1px solid #33475C;border-radius:9px;
@@ -165,41 +177,43 @@ export async function renderWorld(app, state) {
 
 // ——— المشاهد ———
 function startAchievement(s) {
+  leaveHome();
   const dest = DESTINATIONS.find(d => d.id === s.destination) || DESTINATIONS[3];
   engine.active = { kind: 'achievement', scene: s, label: ACTIVITY_LABEL[dest.id] || 'ينجز مهمة', step: 'go' };
   sami.goTo(dest.spot.x, dest.spot.y, () => {
     engine.active.step = 'act';
     sami.pose = ACTIVITY_BY_DEST[dest.id] || 'work';
-    engine.phaseEnds = performance.now() + Math.max(4000, s.durationMs - 4000); // المشي جزء من الزمن
+    engine.phaseEnds = performance.now() + Math.max(4000, s.durationMs - 4000);
   });
 }
 
 function startStory(s, state) {
-  unlockAudioSilent();
+  leaveHome();
   engine.active = { kind: 'story', scene: s, label: `الفصل الأول: ${s.name}`, step: 'go' };
   switch (s.scene) {
     case 'arrival':
-      sami.x = W + 30; sami.y = H - 40; bondok.x = W + 70; bondok.y = H - 20;
-      chainWalk(sami, [pathPoint(0.12), pathPoint(0.3), SPOTS.square], () => { engine.active.step = 'act'; sami.pose = 'idle'; engine.phaseEnds = performance.now() + 3500; });
+      sami.x = 30; sami.y = 630; bondok.x = -10; bondok.y = 640;
+      sami.visible = true; bondok.visible = true;
+      chainWalk(sami, [pathPoint(0.08), pathPoint(0.25), SPOTS.square], () => { engine.active.step = 'act'; sami.pose = 'idle'; engine.phaseEnds = performance.now() + 3500; });
       break;
     case 'firstTask': {
-      const mid = pathPoint(0.45);
+      const mid = pathPoint(0.5);
       sami.goTo(mid.x, mid.y, () => { engine.active.step = 'act'; sami.pose = 'work'; engine.phaseEnds = performance.now() + 8000; });
       break;
     }
     case 'abandoned':
-      sami.goTo(236, 528, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
+      sami.goTo(530, 600, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
       break;
     case 'notebook':
-      sami.goTo(SPOTS.tree.x + 8, SPOTS.tree.y, () => {
+      sami.goTo(SPOTS.tree.x + 10, SPOTS.tree.y, () => {
         engine.active.step = 'act'; sami.pose = 'read';
-        bondok.goTo(SPOTS.tree.x - 18, SPOTS.tree.y + 6, () => { bondok.pose = 'sit'; });
+        bondok.goTo(SPOTS.tree.x - 22, SPOTS.tree.y + 8, () => { bondok.pose = 'sit'; });
         engine.phaseEnds = performance.now() + 9000;
       });
       break;
     case 'nightHint':
       engine.active.step = 'act';
-      engine.flicker = performance.now() + 1200; // وميض واحد تلميحًا
+      engine.flicker = performance.now() + 1200;
       engine.phaseEnds = performance.now() + 8000;
       break;
   }
@@ -211,6 +225,33 @@ function chainWalk(actor, points, done) {
   actor.goTo(p.x, p.y, () => chainWalk(actor, rest, done));
 }
 
+// الراحة في البيت: يمشي للباب، ينفتح، يدخل ويتلاشى، يبقى مستريحًا
+function goRestHome() {
+  engine.resting = 'entering';
+  sami.goTo(SAMI_DOOR.x + 36, SAMI_DOOR.y + 12, () => {
+    sami.goTo(SAMI_DOOR.x, SAMI_DOOR.y + 4, () => {
+      engine.doorOpen = true;
+      setTimeout(() => {
+        sami.alpha = 0;
+        sami.visible = false;
+        engine.resting = true;
+        setTimeout(() => { engine.doorOpen = false; }, 600);
+      }, 450);
+    });
+  });
+  sami.alpha = 1;
+}
+
+// يخرج من البيت عند حدث جديد أو روتين يتطلب مكانًا
+function leaveHome() {
+  if (!engine.resting) return;
+  engine.resting = false;
+  engine.doorOpen = true;
+  sami.x = SAMI_DOOR.x; sami.y = SAMI_DOOR.y + 4;
+  sami.visible = true; sami.alpha = 1; sami.pose = 'idle';
+  setTimeout(() => { engine.doorOpen = false; }, 900);
+}
+
 function tickEngine(now) {
   const a = engine.active;
   if (a) {
@@ -219,68 +260,42 @@ function tickEngine(now) {
       sami.hop = 700; bondok.hop = 500;
       sounds.celebrate(); vibrate([40, 60, 40]);
       engine.active = null; sami.pose = 'idle';
+      // بعد أي مشهد إنجاز: ارجع البيت واستريح (فكرة المستخدم المعتمدة)
+      if (a.kind === 'achievement' && !engine.queue.length) goRestHome();
     }
     return;
   }
-  // روتين اليوم: يقود الموضع والوضعية حين لا مشاهد
+  if (engine.resting) return; // مستريح: لا روتين يحركه حتى يخرج
   const r = routineFor(new Date());
   const spot = SPOTS[r.spot];
+  // هل الأنسب الراحة في البيت الآن؟ (لا أحداث، والروتين في نطاق البيت)
+  if (!sami.moving && shouldRestAtHome({ active: null, queueLength: engine.queue.length, routineSpot: r.spot })
+      && Math.hypot(spot.x - sami.x, spot.y - sami.y) < 60 && sami.pose !== 'sleep') {
+    // قريب من البيت أصلًا في روتين هادئ: ابقَ في وضعيتك، لا ندخل إلا ليلًا أو عند «يدوّن»
+    if (r.activity === 'read' || r.activity === 'sleep') goRestHome();
+    return;
+  }
   if (!sami.moving && Math.hypot(spot.x - sami.x, spot.y - sami.y) > 8) sami.goTo(spot.x, spot.y);
   else if (!sami.moving && sami.pose !== r.activity) sami.pose = r.activity;
 }
 
 function tickBondok(now) {
   if (bondok.moving) return;
-  if (sami.pose === 'sleep') { bondok.pose = 'sleep'; return; }
+  if (sami.pose === 'sleep' || engine.resting) {
+    // ينام عند الباب أثناء راحة سامي
+    if (!engine.resting || Math.hypot(SAMI_DOOR.x + 20 - bondok.x, SAMI_DOOR.y + 10 - bondok.y) < 30) bondok.pose = 'sleep';
+    else bondok.goTo(SAMI_DOOR.x + 20, SAMI_DOOR.y + 10);
+    return;
+  }
   if (bondok.pose === 'sleep') bondok.pose = 'idle';
   const d = Math.hypot(sami.x - bondok.x, sami.y - bondok.y);
-  if (d > 70) { bondok.pose = 'idle'; bondok.goTo(sami.x + 26, sami.y + 10); return; }
-  if (now > engine.wanderAt && !engine.active) { // تجول حر خفيف (حدث مستقل بلا إنجاز)
+  if (d > 90) { bondok.pose = 'idle'; bondok.goTo(sami.x + 26, sami.y + 10); return; }
+  if (now > engine.wanderAt && !engine.active) {
     engine.wanderAt = now + 7000 + Math.random() * 8000;
     if (Math.random() < 0.35) bondok.pose = bondok.pose === 'sit' ? 'idle' : 'sit';
     else bondok.goTo(bondok.x + (Math.random() - 0.5) * 90, bondok.y + (Math.random() - 0.5) * 40);
   }
 }
 
-function unlockAudioSilent() { /* فتح الصوت يتم مع أول لمسة (R6) */ }
-
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
-// بطاقة الوجهة (LQ-035)
-function showDestinationCard(app, d, p, st, state) {
-  app.querySelector('#dest-card')?.remove();
-  const linked = state.items.filter(i => !i.archivedAt && i.area === d.id &&
-    ['task', 'subtask', 'project', 'stage'].includes(i.type));
-  const remaining = linked.filter(i => i.status !== 'done');
-  const nextDue = remaining.filter(i => i.due && i.due.date).sort((a, b) => (a.due.date < b.due.date ? -1 : 1))[0];
-  const pct = p.ratio === null ? null : Math.round(p.ratio * 100);
-  const wrap = document.createElement('div');
-  wrap.id = 'dest-card';
-  wrap.style.cssText = 'position:absolute;inset:0;z-index:8;background:rgba(4,10,24,.55);display:flex;align-items:flex-end';
-  wrap.innerHTML = `
-    <div style="background:var(--panel);color:var(--foam);width:100%;border-radius:18px 18px 0 0;padding:16px 18px 20px;box-shadow:0 -6px 24px rgba(0,0,0,.4)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h2 style="color:#fff">${d.name}</h2>
-        <button id="dc-close" style="color:var(--foam);font-size:20px;padding:4px 8px">✕</button>
-      </div>
-      ${pct === null
-        ? '<div class="muted" style="color:#8FA8B8;margin-bottom:10px">مغلق — اربط مهام بهذا المجال من شاشة الإضافة عشان يتفتح.</div>'
-        : `<div style="height:10px;background:#061022;border-radius:5px;overflow:hidden;margin-bottom:8px">
-             <div style="height:100%;width:${pct}%;background:${st.key === 'done' ? 'var(--amber)' : 'var(--mint)'}"></div>
-           </div>
-           <div style="display:flex;gap:14px;font-size:13px;margin-bottom:10px;color:#CFF5EA">
-             <span>التقدم: <b>${arNum(pct)}٪</b></span>
-             <span>المتبقي: <b>${arNum(remaining.length)}</b> من ${arNum(p.total)}</span>
-           </div>`}
-      ${nextDue ? `<div style="font-size:12px;color:#8FA8B8;margin-bottom:12px">أقرب موعد: ${fmtDateAr(nextDue.due.date)} — ${esc(nextDue.title)}</div>` : ''}
-      <button id="dc-open" class="btn" style="width:100%">${pct === null ? 'أضف مهمة لهذا المجال' : 'افتح التفاصيل في الأهداف'}</button>
-    </div>`;
-  wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
-  wrap.querySelector('#dc-close').onclick = () => wrap.remove();
-  wrap.querySelector('#dc-open').onclick = () => {
-    wrap.remove();
-    if (pct === null) openAddSheet({ area: d.id });
-    else location.hash = '#/goals';
-  };
-  app.querySelector('#labels').parentElement.appendChild(wrap);
-}

@@ -1,26 +1,26 @@
-// عارض قرية القمر: طبقة ثابتة مخبأة لكل طور + طبقة حية (نجوم، بحر، دخان، يراعات، توهج الطريق).
-import { W, H, SKY_H, SEA_TOP, SHORE, LIGHTHOUSE, MOON, VILLAGE_HOUSES, SAMI_HOUSE,
+// عارض قرية القمر: طبقتان ثابتتان مخبأتان (بعيدة بشلل/قريبة) + طبقة حية.
+// الكاميرا تتبع سامي؛ الطبقة البعيدة تتحرك بعامل 0.35 لعمق حقيقي.
+import { W, H, VIEW_W, VIEW_H, SKY_H, SEA_TOP, SHORE, MOON, VILLAGE_HOUSES, SAMI_HOUSE,
          ABANDONED_HOUSE, CHERRY_TREE, pathPoint, stars, fireflies, rng } from './layout.js';
-import { PAL, dither, poly, mountains, house, ruinedHouse, cliff, lighthouse,
-         cherryTree, beachHut, workshop, market } from './scenery.js';
+import { PAL, dither, poly, mountains, sea, house, ruinedHouse, cliff, lighthouse,
+         cherryTree, beachHut, workshop, market, road, forestEdge } from './scenery.js';
 
 const STARFIELD = stars(7);
 const FLIES = fireflies(21);
-const staticCache = new Map(); // phase -> offscreen canvas
+const farCache = new Map(), nearCache = new Map();
 
-function staticLayer(phase) {
-  if (staticCache.has(phase)) return staticCache.get(phase);
+// الطبقة البعيدة: سماء + نجوم + قمر + جبال + بحر (تتحرك بشلل 0.35)
+function farLayer(phase) {
+  if (farCache.has(phase)) return farCache.get(phase);
   const P = PAL[phase];
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  const night = phase === 'night', day = phase === 'day';
+  const day = phase === 'day';
 
-  // السماء
   const sky = ctx.createLinearGradient(0, 0, 0, SKY_H);
   sky.addColorStop(0, P.skyTop); sky.addColorStop(0.6, P.skyMid); sky.addColorStop(1, P.skyLow);
   ctx.fillStyle = sky; ctx.fillRect(0, 0, W, SKY_H);
-  // النجوم (الأساس الثابت؛ الوميض حي)
   if (!day) for (const s of STARFIELD) {
     ctx.globalAlpha = s.o; ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(s.x, s.y, s.r, s.r);
@@ -28,215 +28,213 @@ function staticLayer(phase) {
   }
   ctx.globalAlpha = 1;
 
-  // القمر/الشمس + الهالة
-  const mx = day ? 300 : MOON.x, my = day ? 70 : MOON.y, mr = day ? 26 : MOON.r;
+  const mx = day ? 620 : MOON.x, my = day ? 64 : MOON.y, mr = day ? 26 : MOON.r;
   const glow = ctx.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 2.8);
   glow.addColorStop(0, day ? 'rgba(255,246,220,.5)' : 'rgba(207,245,234,.4)');
   glow.addColorStop(1, 'rgba(207,245,234,0)');
   ctx.fillStyle = glow; ctx.fillRect(mx - mr * 3, my - mr * 3, mr * 6, mr * 6);
   ctx.fillStyle = P.moon; ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
-  if (!day) { // فوهات
+  if (!day) {
     ctx.fillStyle = P.moonCrater;
     ctx.beginPath(); ctx.arc(mx - 10, my - 6, 6, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(mx + 9, my + 10, 4.5, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(mx + 4, my - 12, 3, 0, 7); ctx.fill();
   }
 
-  // الجبال البعيدة بطبقتين + ضباب أسفلها
   mountains(ctx, P, 0); mountains(ctx, P, 1);
   ctx.fillStyle = P.fog; ctx.fillRect(0, SKY_H - 22, W, 22);
+  sea(ctx, P);
+  // عمود انعكاس القمر الثابت (الوميض حي)
+  if (!day) {
+    ctx.fillStyle = 'rgba(207,245,234,.16)';
+    for (let i = 0; i < 10; i++) {
+      const w = 20 + i * 7;
+      ctx.fillRect(MOON.x - w / 2 + (i % 2) * 4, SEA_TOP + 8 + i * 12, w, 2);
+    }
+  }
+  farCache.set(phase, { cv });
+  return farCache.get(phase);
+}
 
-  // البحر: جسم + صفوف تنقيط أفقية
-  const sea = ctx.createLinearGradient(0, SEA_TOP, 0, SHORE + 26);
-  sea.addColorStop(0, P.seaA); sea.addColorStop(1, P.seaB);
-  ctx.fillStyle = sea; ctx.fillRect(0, SEA_TOP, W, SHORE + 26 - SEA_TOP);
-  ctx.fillStyle = P.seaLine;
-  const rnd = rng(31);
-  for (let yy = SEA_TOP + 6; yy < SHORE + 20; yy += 7)
-    for (let xx = 0; xx < W; xx += 14 + rnd() * 20)
-      ctx.fillRect(xx, yy, 6 + rnd() * 10, 1.5);
+// الطبقة القريبة: أرض + جرفان + قرية + طريق + شجرة + غابة
+function nearLayer(phase, doorOpen) {
+  const key = phase + (doorOpen ? ':open' : '');
+  if (nearCache.has(key)) return nearCache.get(key);
+  const P = PAL[phase];
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
 
-  // الأرض: منحدر من الشاطئ إلى قاعدة الجرف الأيمن + حبيبات
-  poly(ctx, [[-6, SHORE + 8], [60, SHORE - 2], [150, SHORE + 16], [240, SHORE + 2],
-             [310, SHORE - 14], [396, SHORE - 26], [396, H + 6], [-6, H + 6]], P.grassB);
-  poly(ctx, [[-6, SHORE + 14], [60, SHORE + 4], [150, SHORE + 22], [240, SHORE + 8],
-             [310, SHORE - 8], [396, SHORE - 20], [396, SHORE + 60], [-6, SHORE + 60]], P.sandA);
-  dither(ctx, 0, SHORE + 6, W, 26, P.sandEdge, 0.25);
-  dither(ctx, 0, SHORE + 40, W, H - SHORE - 40, 'rgba(0,0,0,.12)', 0.18);
+  // الأرض: منحدر من الشاطئ إلى قاعدة الجرف الشرقي
+  poly(ctx, [[-6, SHORE + 10], [120, SHORE - 2], [300, SHORE + 18], [480, SHORE + 4],
+             [610, SHORE - 12], [826, SHORE - 24], [826, H + 6], [-6, H + 6]], P.grassB);
+  // شريط الرمال عند الشاطئ
+  poly(ctx, [[-6, SHORE + 16], [120, SHORE + 6], [300, SHORE + 24], [480, SHORE + 10],
+             [610, SHORE - 6], [826, SHORE - 18], [826, SHORE + 52], [-6, SHORE + 52]], P.sandA);
+  dither(ctx, 0, SHORE + 8, W, 22, P.sandEdge, 0.25);
+  dither(ctx, 0, SHORE + 54, W, H - SHORE - 54, 'rgba(0,0,0,.12)', 0.18);
   // شعيرات عشب
   const rndG = rng(77);
   ctx.fillStyle = P.grassHi;
-  for (let i = 0; i < 90; i++) {
-    const gx = rndG() * W, gy = SHORE + 30 + rndG() * (H - SHORE - 40);
+  for (let i = 0; i < 200; i++) {
+    const gx = rndG() * W, gy = SHORE + 40 + rndG() * (H - SHORE - 50);
     ctx.fillRect(gx, gy, 2, 3 + rndG() * 3);
   }
 
-  // الجرفان
+  forestEdge(ctx, P);
   cliff(ctx, P, 'left'); cliff(ctx, P, 'right');
 
-  // القرية على المنحدر
+  // الطريق أولًا ثم البيوت فوق حوافه العليا
+  road(ctx, P);
+
   const chimneys = [];
   for (const h of VILLAGE_HOUSES) {
     const r = house(ctx, P, h, phase);
     if (r.lit) chimneys.push(r);
   }
-  house(ctx, P, { ...SAMI_HOUSE, roof: 'gable', tone: 2, lit: true }, phase);
+  const sh = house(ctx, P, { ...SAMI_HOUSE, roof: 'gable', tone: 2, lit: true }, phase, doorOpen);
+  chimneys.push({ chimneyX: sh.chimneyX, chimneyY: sh.chimneyY });
   ruinedHouse(ctx, P, ABANDONED_HOUSE);
   workshop(ctx, P, phase); market(ctx, P, phase); beachHut(ctx, P, phase);
-
-  // شجرة الكرز
   cherryTree(ctx, P);
 
-  // الطريق: فرشاة ترابية + حصى حواف
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = P.pathEdge; ctx.lineWidth = 16;
-  strokePath(ctx, 0, 1);
-  ctx.strokeStyle = P.pathA; ctx.lineWidth = 12;
-  strokePath(ctx, 0, 1);
-  const rndP = rng(99);
-  ctx.fillStyle = P.pathEdge;
-  for (let t = 0; t < 1; t += 0.04) {
+  // أعمدة فوانيس على الطريق
+  for (const t of [0.15, 0.42, 0.68, 0.88]) {
     const p = pathPoint(t);
-    if (rndP() > 0.5) ctx.fillRect(p.x + (rndP() - 0.5) * 10, p.y + (rndP() - 0.5) * 8, 2, 2);
+    ctx.fillStyle = '#2A2438'; ctx.fillRect(p.x + 11, p.y - 26, 3, 26);
+    ctx.fillStyle = (phase === 'night' || phase === 'dusk') ? '#FFC857' : '#3A3448';
+    ctx.fillRect(p.x + 10, p.y - 32, 5, 7);
   }
 
-  // أعمدة فوانيس على الطريق (العنبر للإنجاز/الإضاءة فقط)
-  for (const t of [0.18, 0.46, 0.74]) {
-    const p = pathPoint(t);
-    ctx.fillStyle = '#2A2438'; ctx.fillRect(p.x + 9, p.y - 18, 3, 18);
-    ctx.fillStyle = night || phase === 'dusk' ? '#FFC857' : '#3A3448';
-    ctx.fillRect(p.x + 8, p.y - 23, 5, 6);
-  }
-
-  staticCache.set(phase, { cv, chimneys });
-  return staticCache.get(phase);
+  nearCache.set(key, { cv, chimneys });
+  return nearCache.get(key);
 }
 
-function strokePath(ctx, t0, t1) {
-  ctx.beginPath();
-  for (let t = t0; t <= t1 + 0.001; t += 0.02) {
-    const p = pathPoint(t);
-    t === t0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
-  }
-  ctx.stroke();
-}
-
-// الإطار الكامل. env: {phase, heroT, lamp (0/1/2), beamAngle, flicker, reduceMotion}
+// الإطار الكامل. env: {phase, heroT, lamp, flicker, reduceMotion, camX, doorOpen, beamAngle}
 export function drawScene(ctx, w, h, time = 0, env = {}) {
   const phase = env.phase || 'night';
   const P = PAL[phase];
-  const { cv, chimneys } = staticLayer(phase);
-  const sx = w / W, sy = h / H;
+  const camX = env.camX || 0;
+  const { cv: far } = farLayer(phase);
+  const { cv: near, chimneys } = nearLayer(phase, env.doorOpen);
+  const sx = w / VIEW_W, sy = h / VIEW_H;
   ctx.save(); ctx.scale(sx, sy);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(cv, 0, 0);
+
+  // بعيد بشلل
+  const par = camX * 0.35;
+  ctx.drawImage(far, par, 0, VIEW_W, H, 0, 0, VIEW_W, H);
   const night = phase === 'night', day = phase === 'day';
   const still = env.reduceMotion;
 
-  // وميض النجوم
-  if (!day && !still) for (let i = 0; i < STARFIELD.length; i += 3) {
-    const s = STARFIELD[i];
-    const tw = 0.3 + 0.7 * Math.abs(Math.sin(time / 900 + i));
-    ctx.globalAlpha = tw * s.o; ctx.fillStyle = '#FFF';
-    ctx.fillRect(s.x, s.y, s.r, s.r);
-  }
-  ctx.globalAlpha = 1;
-
-  // سحب خفيفة تنساب
+  // سحب منسابة (بشلل أخف)
   if (!still) {
     ctx.fillStyle = night ? 'rgba(20,40,80,.5)' : 'rgba(255,255,255,.35)';
-    const cx1 = ((time / 90) % (W + 220)) - 110, cx2 = ((time / 140 + 200) % (W + 260)) - 130;
-    cloud(ctx, cx1, 52); cloud(ctx, cx2, 96);
+    const drift = (x, y, sp) => {
+      const cx = ((time / sp + x) % (VIEW_W + 240)) - 120;
+      ctx.fillRect(cx, y, 44, 8); ctx.fillRect(cx + 8, y - 6, 26, 6); ctx.fillRect(cx + 14, y + 7, 20, 4);
+    };
+    drift(0, 46, 90); drift(220, 92, 140);
   }
 
-  // لمعة القمر على البحر + تلألؤ الصفوف
-  const mx = day ? 300 : MOON.x;
+  // صفوف أمواج متحركة فوق البحر (تقنية SLYNYRD: هلالات تنساب بسرعات مختلفة)
   if (!still) {
-    for (let i = 0; i < 8; i++) {
-      const lw = (day ? 40 : 56) - i * 5;
-      ctx.globalAlpha = (day ? 0.25 : 0.5) - i * 0.045;
-      ctx.fillStyle = P.moon;
-      ctx.fillRect(mx - lw / 2 + Math.sin(time / 480 + i * 1.7) * 5, SEA_TOP + 8 + i * 12, lw, 2.5);
+    for (let row = 0; row < 5; row++) {
+      const yy = SEA_TOP + 18 + row * 24;
+      const sp = 30 + row * 14;
+      const dir = row % 2 ? 1 : -1;
+      ctx.fillStyle = row % 2 ? P.crest : P.crestHi;
+      ctx.globalAlpha = 0.5 - row * 0.06;
+      for (let k = 0; k < 7; k++) {
+        const base = (k * 140 + dir * time / sp) % (W + 80);
+        const xx = ((base % (W + 80)) + (W + 80)) % (W + 80) - 40 - par;
+        if (xx > -50 && xx < VIEW_W + 10) ctx.fillRect(xx, yy + Math.sin(time / 600 + k) * 1.5, 22 + row * 6, 2);
+      }
     }
     ctx.globalAlpha = 1;
+    // ومضات انعكاس القمر الحية
+    if (!day) {
+      for (let i = 0; i < 7; i++) {
+        const lw = 34 - i * 3.5;
+        ctx.globalAlpha = 0.4 - i * 0.05;
+        ctx.fillStyle = P.moon;
+        ctx.fillRect(MOON.x - par - lw / 2 + Math.sin(time / 470 + i * 1.7) * 6, SEA_TOP + 12 + i * 14, lw, 2.5);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // دخان المداخن من بيوت القرية الحية + بيت سامي
+  // قريب
+  ctx.drawImage(near, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+
+  // دخان المداخن
   if (!still) {
     ctx.fillStyle = night ? 'rgba(200,220,235,.30)' : 'rgba(240,240,240,.5)';
-    for (const c of [...chimneys, { chimneyX: SAMI_HOUSE.x + 11, chimneyY: SAMI_HOUSE.y - 58 }]) {
+    for (const c of chimneys) {
       for (let i = 0; i < 3; i++) {
         const ph = (time / 1600 + i * 0.33 + c.chimneyX * 0.01) % 1;
         ctx.globalAlpha = 0.35 * (1 - ph);
-        ctx.fillRect(c.chimneyX - 2 + Math.sin(ph * 5) * 3, c.chimneyY - ph * 26, 4 + ph * 4, 4 + ph * 3);
+        ctx.fillRect(c.chimneyX - camX - 2 + Math.sin(ph * 5) * 3, c.chimneyY - ph * 30, 4 + ph * 4, 4 + ph * 3);
       }
     }
     ctx.globalAlpha = 1;
   }
 
-  // زبد الموج على خط الشاطئ
-  if (!still) {
-    ctx.fillStyle = 'rgba(238,247,245,.5)';
-    for (let i = 0; i < 6; i++) {
-      const ph = (time / 2400 + i * 0.17) % 1;
-      ctx.globalAlpha = 0.5 * Math.sin(ph * Math.PI);
-      ctx.fillRect(30 + i * 60 + Math.sin(i * 7) * 14, SHORE + 6 + Math.sin(ph * 6 + i) * 3, 26, 2);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // المنارة + مصباحها + الشعاع
+  // المنارة + مصباحها (حية لأن وميضها يتغير) — بإحداثيات العالم
+  ctx.save(); ctx.translate(-camX, 0);
   const lampP = lighthouse(ctx, P, phase, env.flicker ? 1 : (env.lamp ?? 1));
+  ctx.restore();
+  lampP.lampX -= camX;
+
   if ((env.lamp ?? 0) >= 2 && (night || phase === 'dusk')) {
     const ang = env.beamAngle ?? (time / 2600);
     const bx = Math.cos(ang), by = Math.sin(ang) * 0.25;
-    ctx.save(); ctx.translate(lampP.lampX, lampP.lampY);
-    for (const dir of [1, -1]) {
-      const g = ctx.createLinearGradient(0, 0, dir * 190 * Math.abs(bx) || dir * 60, by * 190);
+    ctx.save(); ctx.translate(lampP.lampX - camX, lampP.lampY);
+    for (const ddir of [1, -1]) {
+      const g = ctx.createLinearGradient(0, 0, ddir * 190 * Math.abs(bx) || ddir * 60, by * 190);
       g.addColorStop(0, 'rgba(255,220,140,.30)'); g.addColorStop(1, 'rgba(255,220,140,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(0, -3);
-      ctx.lineTo(dir * 190 * bx, by * 190 - 16); ctx.lineTo(dir * 190 * bx, by * 190 + 16);
+      ctx.lineTo(ddir * 190 * bx, by * 190 - 16); ctx.lineTo(ddir * 190 * bx, by * 190 + 16);
       ctx.closePath(); ctx.fill();
     }
     ctx.restore();
   }
 
-  // توهج الطريق العنبري حتى موضع سامي (التقدم الحقيقي)
+  // توهج الطريق العنبري حتى موضع التقدم
   const ht = Math.max(0, Math.min(1, env.heroT ?? 0));
   if (ht > 0.02) {
     const pulse = still ? 0.8 : 0.65 + 0.35 * Math.sin(time / 700);
     ctx.save();
-    ctx.strokeStyle = `rgba(255,200,87,${0.26 * pulse})`; ctx.lineWidth = 24; strokePath(ctx, 0, ht);
-    ctx.strokeStyle = `rgba(255,214,120,${0.55 * pulse})`; ctx.lineWidth = 8; strokePath(ctx, 0, ht);
-    // نقاط ضوء متدرجة
-    for (let t = 0.02; t < ht; t += 0.055) {
+    ctx.strokeStyle = `rgba(255,200,87,${0.22 * pulse})`; ctx.lineWidth = 26; strokePath(ctx, 0, ht, camX);
+    ctx.strokeStyle = `rgba(255,214,120,${0.5 * pulse})`; ctx.lineWidth = 9; strokePath(ctx, 0, ht, camX);
+    for (let t = 0.02; t < ht; t += 0.05) {
       const p = pathPoint(t);
       const a = (0.25 + 0.5 * (t / ht)) * pulse;
       ctx.fillStyle = `rgba(255,224,150,${a})`;
-      ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      ctx.fillRect(p.x - camX - 1.5, p.y - 1.5, 3, 3);
     }
-    // هالة عند رأس التقدم
     const tip = pathPoint(ht);
-    const g = ctx.createRadialGradient(tip.x, tip.y, 2, tip.x, tip.y, 26);
+    const g = ctx.createRadialGradient(tip.x - camX, tip.y, 2, tip.x - camX, tip.y, 28);
     g.addColorStop(0, `rgba(255,214,120,${0.5 * pulse})`); g.addColorStop(1, 'rgba(255,200,87,0)');
-    ctx.fillStyle = g; ctx.fillRect(tip.x - 26, tip.y - 26, 52, 52);
+    ctx.fillStyle = g; ctx.fillRect(tip.x - camX - 28, tip.y - 28, 56, 56);
     ctx.restore();
   }
 
   // أضواء الفوانيس ليلًا
-  if (night || phase === 'dusk') for (const t of [0.18, 0.46, 0.74]) {
+  if (night || phase === 'dusk') for (const t of [0.15, 0.42, 0.68, 0.88]) {
     const p = pathPoint(t);
-    const g = ctx.createRadialGradient(p.x + 10, p.y - 20, 1, p.x + 10, p.y - 20, 16);
+    const g = ctx.createRadialGradient(p.x - camX + 12, p.y - 28, 1, p.x - camX + 12, p.y - 28, 18);
     g.addColorStop(0, 'rgba(255,200,87,.4)'); g.addColorStop(1, 'rgba(255,200,87,0)');
-    ctx.fillStyle = g; ctx.fillRect(p.x - 6, p.y - 36, 32, 32);
+    ctx.fillStyle = g; ctx.fillRect(p.x - camX - 6, p.y - 46, 36, 36);
   }
 
-  // يراعات الليل حول الشجرة والمنحدر
+  // يراعات الليل
   if (night && !still) {
     for (const f of FLIES) {
-      const fx = f.cx + Math.cos(time / 1000 * f.speed + f.phase) * f.r;
+      const fx = f.cx + Math.cos(time / 1000 * f.speed + f.phase) * f.r - camX;
       const fy = f.cy + Math.sin(time / 1300 * f.speed + f.phase * 2) * f.r * 0.6;
+      if (fx < -5 || fx > VIEW_W + 5) continue;
       const a = 0.25 + 0.75 * Math.abs(Math.sin(time / 600 + f.phase * 3));
       ctx.fillStyle = `rgba(190,255,170,${a * 0.9})`;
       ctx.fillRect(fx, fy, 2, 2);
@@ -245,32 +243,36 @@ export function drawScene(ctx, w, h, time = 0, env = {}) {
     }
   }
 
-  // بتلات كرز منساقة
+  // بتلات كرز
   if (!still) {
     ctx.fillStyle = P.leafHi;
     for (let i = 0; i < 7; i++) {
       const ph = (time / 6000 + i * 0.14) % 1;
-      const bx = CHERRY_TREE.x - 20 + ph * 90 + Math.sin(ph * 9 + i) * 8;
-      const by = CHERRY_TREE.y - 66 + ph * 90;
+      const bx = CHERRY_TREE.x - 24 + ph * 100 + Math.sin(ph * 9 + i) * 8 - camX;
+      const by = CHERRY_TREE.y - 88 + ph * 100;
       ctx.globalAlpha = 0.85 * (1 - ph * 0.7);
       ctx.fillRect(bx, by, 2.5, 2.5);
     }
     ctx.globalAlpha = 1;
   }
 
-  // تظليل حواف (فينييت) خفيف ليلًا
   if (night) {
-    const v = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.32, W / 2, H * 0.5, H * 0.75);
+    const v = ctx.createRadialGradient(VIEW_W / 2, H * 0.45, H * 0.32, VIEW_W / 2, H * 0.5, H * 0.75);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(3,6,18,.34)');
-    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = v; ctx.fillRect(0, 0, VIEW_W, H);
   }
 
   ctx.restore();
 }
 
-function cloud(ctx, x, y) {
-  ctx.fillRect(x, y, 44, 8); ctx.fillRect(x + 8, y - 6, 26, 6); ctx.fillRect(x + 14, y + 7, 20, 4);
+function strokePath(ctx, t0, t1, camX = 0) {
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let t = t0; t <= t1 + 0.001; t += 0.02) {
+    const p = pathPoint(t);
+    t === t0 ? ctx.moveTo(p.x - camX, p.y) : ctx.lineTo(p.x - camX, p.y);
+  }
+  ctx.stroke();
 }
 
-// لإعادة بناء الطبقة الثابتة عند تغير الطور
-export function invalidateStatic() { staticCache.clear(); }
+export function invalidateStatic() { farCache.clear(); nearCache.clear(); }

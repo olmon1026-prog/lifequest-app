@@ -13,6 +13,8 @@ export class Actor {
     this.speed = 0.055;   // بكسل/مللي ثانية تقريبًا
     this.hop = 0;
     this.onArrive = null;
+    this.visible = true;   // false داخل البيت
+    this.alpha = 1;        // يتلاشى عند الدخول
   }
   goTo(x, y, onArrive = null) { this.tx = x; this.ty = y; this.onArrive = onArrive; }
   get moving() { return Math.hypot(this.tx - this.x, this.ty - this.y) > 1.5; }
@@ -31,7 +33,8 @@ export class Actor {
     if (this.hop > 0) this.hop = Math.max(0, this.hop - dt);
   }
   draw(ctx, sheet, time) {
-    if (!sheet) return;
+    if (!sheet || !this.visible) return;
+    ctx.save(); ctx.globalAlpha = this.alpha;
     const hopY = this.hop > 0 ? Math.abs(Math.sin(this.hop / 90)) * 13 : 0;
     const y = this.y - hopY;
     // ظل خفيف
@@ -39,5 +42,6 @@ export class Actor {
     ctx.beginPath(); ctx.ellipse(this.x, this.y + 1, 12 * this.scale / 2, 3.5, 0, 0, 7); ctx.fill();
     if (this.moving) drawFrame(ctx, sheet, Math.floor(this.frame), this.x, y, this.scale, this.facing);
     else drawPose(ctx, sheet, this.pose, 0, this.x, y, this.scale, this.facing, time);
+    ctx.restore();
   }
 }

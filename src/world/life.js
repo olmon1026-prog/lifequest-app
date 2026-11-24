@@ -120,3 +120,11 @@ export function nextStoryScene(flags, stats) {
   }
   return null;
 }
+
+// الاستراحة في البيت (فكرة المستخدم المعتمدة): بعد انتهاء مشهد إنجاز وغياب أي حدث
+// قادم، يرجع سامي بيته ويدخل ويستريح. يخرج عند: مشهد جديد في الطابور، أو روتين
+// يتطلب مكانًا آخر (نزهة الصباح مثلًا). زمن منطقي: الراحة ليست مشهدًا ولا تمنح شيئًا.
+export function shouldRestAtHome({ active, queueLength, routineSpot }) {
+  if (active || queueLength > 0) return false;
+  return routineSpot === 'door' || routineSpot === 'tree' || routineSpot === 'square';
+}

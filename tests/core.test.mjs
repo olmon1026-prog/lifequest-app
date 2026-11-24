@@ -200,7 +200,7 @@ t('destinationProgress', () => {
 t('pathPoint داخل الحدود', () => {
   for (let t = 0; t <= 1; t += 0.1) {
     const p = pathPoint(t);
-    assert.ok(p.x >= 0 && p.x <= 390 && p.y >= 0 && p.y <= 640);
+    assert.ok(p.x >= 0 && p.x <= 820 && p.y >= 0 && p.y <= 640);
   }
 });
 

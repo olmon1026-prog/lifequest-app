@@ -108,3 +108,29 @@ t('الفصل الأول: الترتيب ثابت والشروط متدرجة', 
 });
 
 console.log(`\n${passed} اختبار محرك حياة ناجح`);
+
+import { shouldRestAtHome } from '../src/world/life.js';
+import { cameraFor, nearestPathT, W, VIEW_W } from '../src/world/layout.js';
+
+t('الراحة في البيت: لا أثناء مشهد أو طابور، وتتطلب روتينًا هادئًا قرب البيت', () => {
+  assert.equal(shouldRestAtHome({ active: {}, queueLength: 0, routineSpot: 'door' }), false);
+  assert.equal(shouldRestAtHome({ active: null, queueLength: 2, routineSpot: 'door' }), false);
+  assert.equal(shouldRestAtHome({ active: null, queueLength: 0, routineSpot: 'door' }), true);
+  assert.equal(shouldRestAtHome({ active: null, queueLength: 0, routineSpot: 'beach' }), false);
+  assert.equal(shouldRestAtHome({ active: null, queueLength: 0, routineSpot: 'square' }), true);
+});
+
+t('الكاميرا: داخل حدود العالم دائمًا وتتمركز على الهدف', () => {
+  assert.equal(cameraFor(0), 0);
+  assert.equal(cameraFor(-50), 0);
+  assert.equal(cameraFor(W), W - VIEW_W);
+  assert.equal(cameraFor(W + 100), W - VIEW_W);
+  assert.equal(cameraFor(W / 2), W / 2 - VIEW_W / 2);
+});
+
+t('nearestPathT: أقرب نقطة طريق منطقية', () => {
+  const t = nearestPathT(414, 522); // الساحة على الطريق
+  assert.ok(t > 0.3 && t < 0.7, `t=${t}`);
+  const tEnd = nearestPathT(702, 228); // قاعدة المنارة
+  assert.ok(tEnd > 0.9, `tEnd=${tEnd}`);
+});
