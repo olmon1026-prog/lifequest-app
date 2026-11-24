@@ -57,7 +57,7 @@ export function openAddSheet(preset = {}) {
         <div class="field"><label>العنوان</label>
           <input type="text" id="f-title" maxlength="120" value="${esc(state.title)}" placeholder="ماذا تريد أن تنجز؟" autofocus>
         </div>
-        ${isGoal() ? `<div class="muted" style="font-size:12px;margin:-4px 0 10px">${periodHint()}</div>` : ''}
+        ${isGoal() ? `<div class="muted" id="f-period-hint" style="font-size:12px;margin:-4px 0 10px">${periodHint()}</div>` : ''}
         <div class="field" id="f-due-wrap" style="${isGoal() ? 'display:none' : ''}"><label>الموعد</label>
           <div class="chip-row" id="f-duekinds">
             ${[['today', 'اليوم'], ['tomorrow', 'غدًا'], ['weekEnd', 'نهاية الأسبوع'], ['nextWeek', 'الأسبوع القادم'], ['none', 'بدون']].map(([k, l]) =>
@@ -119,6 +119,8 @@ export function openAddSheet(preset = {}) {
       const b = e.target.closest('[data-t]'); if (!b) return;
       const wasGoal = isGoal();
       state.type = b.dataset.t; markChips('#f-types', 't', state.type);
+      // تنقّل بين أنواع الأهداف: حدّث تلميح الفترة فورًا (لا إعادة رسم كاملة)
+      if (isGoal() && wasGoal) { const h = root.querySelector('#f-period-hint'); if (h) h.textContent = periodHint(); }
       if (isGoal() !== wasGoal) {
         if (isGoal()) { state.dueKind = 'none'; state.dueDate = null; state.dueTime = null; }
         else if (!state.dueDate) { state.dueKind = 'today'; state.dueDate = quickDate('today', today, store.state.settings.weekStart ?? 6); }
