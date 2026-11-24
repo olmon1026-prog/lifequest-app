@@ -1,5 +1,5 @@
 // Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
-const BUILD = '__BUILD__';
+const BUILD = '2026-11-24-p2d';
 const CACHE = 'lq-' + BUILD;
 
 const FILES = [
@@ -63,6 +63,10 @@ const FILES = [
   'assets/buildings/market-day.png',
   'assets/buildings/beachhut-night.png',
   'assets/buildings/beachhut-day.png',
+  'assets/buildings/tree-night.png',
+  'assets/buildings/tree-day.png',
+  'assets/buildings/rocks-night.png',
+  'assets/buildings/rocks-day.png',
 ];
 
 self.addEventListener('install', (e) => {

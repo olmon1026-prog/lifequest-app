@@ -400,7 +400,7 @@ export function road(ctx, P, t0 = 0, t1 = 1) {
   // جسم الطريق بجرعات متدرجة العرض
   for (let t = t0; t <= t1 + 0.001; t += 0.012) {
     const p = pathPoint(t);
-    const w = 15 + Math.sin(t * 9) * 3 + rnd() * 3;
+    const w = 19 + Math.sin(t * 9) * 3.5 + rnd() * 3;
     ctx.fillStyle = P.pathEdge;
     ctx.fillRect(p.x - w / 2 - 3, p.y - 4, w + 6, 9);
     ctx.fillStyle = rnd() > 0.25 ? P.pathA : P.pathB;

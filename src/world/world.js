@@ -211,7 +211,7 @@ function startStory(s, state) {
       break;
     }
     case 'abandoned':
-      sami.goTo(545, 622, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
+      sami.goTo(600, 626, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
       break;
     case 'notebook':
       sami.goTo(SPOTS.tree.x + 10, SPOTS.tree.y, () => {
@@ -304,7 +304,7 @@ function tickBondok(now) {
   if (sami.pose === 'sleep') { bondok.pose = 'sleep'; return; }
   if (bondok.pose === 'sleep') bondok.pose = 'idle';
   const d = Math.hypot(sami.x - bondok.x, sami.y - bondok.y);
-  if (d > 90) { bondok.pose = 'idle'; bondok.goTo(sami.x + 26, sami.y + 10); return; }
+  if (d > 80) { bondok.pose = 'idle'; bondok.goTo(sami.x + 20, sami.y + 7); return; }
   if (now > engine.wanderAt && !engine.active) {
     engine.wanderAt = now + 7000 + Math.random() * 8000;
     if (Math.random() < 0.35) bondok.pose = bondok.pose === 'sit' ? 'idle' : 'sit';

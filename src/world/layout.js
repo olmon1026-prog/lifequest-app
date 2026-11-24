@@ -18,19 +18,27 @@ export const MOON = { x: 120, y: 72, r: 34 };
 // (قاعدة SLYNYRD: منظور واحد يوحّد المشهد؛ المباني متصلة بالأرض ببقعة مهترئة).
 // smoke = [إزاحة المدخنة من المركز ×w، ارتفاعها ×الارتفاع] لدخان حي.
 export const BUILDINGS = [
-  { sprite: 'housea',    x: 190, y: 514, w: 150, smoke: [ 0.26, -0.80] },
-  { sprite: 'workshop',  x: 360, y: 496, w: 150, smoke: [ 0.30, -0.86] },
-  { sprite: 'houseb',    x: 528, y: 454, w: 130, smoke: [-0.26, -0.80] },
-  { sprite: 'stone',     x: 190, y: 614, w: 140, front: true },
-  { sprite: 'sami',      x: 400, y: 608, w: 150, smoke: [ 0.27, -0.78], front: true },
-  { sprite: 'ruined',    x: 570, y: 604, w: 130, front: true },
-  { sprite: 'market',    x: 300, y: 535, w: 86 },
+  // الصف الشمالي: أبوابها على الشارع من الجنوب (طبقة خلفية)
+  { sprite: 'stone',     x: 60,  y: 545, w: 110 },
+  { sprite: 'housea',    x: 215, y: 514, w: 140, smoke: [ 0.26, -0.80] },
+  { sprite: 'sami',      x: 390, y: 512, w: 160, smoke: [ 0.27, -0.78] },
+  { sprite: 'workshop',  x: 560, y: 484, w: 140, smoke: [ 0.30, -0.86] },
+  // الصف الجنوبي: قصيرة لا تتجاوز الطريق (طبقة أمامية)
+  { sprite: 'market',    x: 150, y: 630, w: 80,  front: true },
+  { sprite: 'houseb',    x: 520, y: 614, w: 90,  front: true },
+  { sprite: 'ruined',    x: 610, y: 610, w: 110, front: true },
   { sprite: 'beachhut',  x: 132, y: 372, w: 100 },
 ];
 
-export const SAMI_HOUSE = { x: 400, y: 608, w: 150 };
-export const SAMI_DOOR = { x: 400, y: 610 };            // نقطة وقوف سامي أمام الباب
-export const SAMI_DOORWAY = { x: 400, y: 601, w: 30, h: 52 }; // فتحة الباب (احتياطي كودي)
+// صخور مولّدة على وجهي الجرفين
+export const ROCK_SPOTS = [
+  { x: 30,  y: 268, w: 66 }, { x: 56, y: 200, w: 48 },          // الجرف الغربي
+  { x: 700, y: 240, w: 84 }, { x: 782, y: 316, w: 96 },         // جرف المنارة
+];
+
+export const SAMI_HOUSE = { x: 390, y: 512, w: 160 };
+export const SAMI_DOOR = { x: 390, y: 514 };            // نقطة وقوف سامي أمام الباب
+export const SAMI_DOORWAY = { x: 390, y: 505, w: 32, h: 55 }; // فتحة الباب (احتياطي كودي)
 export const CHERRY_TREE = { x: 76, y: 584, scale: 1.5 };
 
 // الغابة غربًا (ظلال مقدمة للفصل ٤)
@@ -40,15 +48,15 @@ export const FOREST_EDGE = 70;
 export const DESTINATIONS = [
   { id: 'health',   name: 'الشاطئ',   kind: 'beach',      x: 132, y: 372, spot: { x: 140, y: 392 } },
   { id: 'learning', name: 'المنارة',  kind: 'lighthouse', x: 736, y: 200, spot: { x: 702, y: 228 } },
-  { id: 'work',     name: 'الورشة',   kind: 'workshop',   x: 360, y: 496, spot: { x: 360, y: 518 } },
-  { id: 'home',     name: 'بيت سامي', kind: 'house',      x: 400, y: 608, spot: { x: 434, y: 618 } },
-  { id: 'money',    name: 'السوق',    kind: 'market',     x: 300, y: 535, spot: { x: 300, y: 552 } },
+  { id: 'work',     name: 'الورشة',   kind: 'workshop',   x: 560, y: 484, spot: { x: 560, y: 506 } },
+  { id: 'home',     name: 'بيت سامي', kind: 'house',      x: 390, y: 512, spot: { x: 424, y: 524 } },
+  { id: 'money',    name: 'السوق',    kind: 'market',     x: 150, y: 630, spot: { x: 150, y: 598 } },
 ];
 
 // نقاط الروتين اليومي
 export const SPOTS = {
-  door:      { x: 434, y: 618 },
-  square:    { x: 292, y: 548 },
+  door:      { x: 424, y: 524 },
+  square:    { x: 322, y: 540 },
   beach:     { x: 140, y: 392 },
   lighthouse:{ x: 702, y: 228 },
   tree:      { x: 96,  y: 596 },

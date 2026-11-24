@@ -1,7 +1,7 @@
 // عارض قرية القمر: طبقتان ثابتتان مخبأتان (بعيدة بشلل/قريبة) + طبقة حية.
 // الكاميرا تتبع سامي؛ الطبقة البعيدة تتحرك بعامل 0.35 لعمق حقيقي.
 import { W, H, VIEW_W, VIEW_H, SKY_H, SEA_TOP, SHORE, MOON, BUILDINGS, SAMI_HOUSE,
-         CHERRY_TREE, SAMI_DOORWAY, LIGHTHOUSE, pathPoint, stars, fireflies, rng } from './layout.js';
+         CHERRY_TREE, SAMI_DOORWAY, LIGHTHOUSE, ROCK_SPOTS, pathPoint, stars, fireflies, rng } from './layout.js';
 import { PAL, dither, poly, mountains, sea, house, ruinedHouse, cliff, lighthouse,
          cherryTree, beachHut, workshop, market, road, forestEdge, doorway } from './scenery.js';
 
@@ -10,7 +10,7 @@ const STARFIELD = stars(7);
 // أصول المباني المولّدة: {sprite: {night: Image, day: Image}} — احتياطيها الرسم الكودي
 const IMGS = {};
 export async function preloadBuildings() {
-  const names = [...new Set([...BUILDINGS.map(b => b.sprite), 'sami-open', 'lighthouse'])];
+  const names = [...new Set([...BUILDINGS.map(b => b.sprite), 'sami-open', 'lighthouse', 'tree', 'rocks'])];
   await Promise.all(names.flatMap(n => ['night', 'day'].map(async v => {
     try {
       await new Promise(res => {
@@ -141,7 +141,16 @@ function nearLayer(phase, front = false) {
       chimneys.push({ chimneyX: b.x + b.smoke[0] * b.w, chimneyY: b.y + b.smoke[1] * hh });
     }
   }
-  cherryTree(ctx, P);
+  const treeSpr = buildingSprite('tree', phase);
+  if (treeSpr) { const tw = 110; ctx.drawImage(treeSpr, CHERRY_TREE.x - tw / 2, CHERRY_TREE.y - tw * (treeSpr.height / treeSpr.width), tw, tw * (treeSpr.height / treeSpr.width)); }
+  else cherryTree(ctx, P);
+
+  // صخور مولّدة على الجرفين
+  const rockSpr = buildingSprite('rocks', phase);
+  for (const s of ROCK_SPOTS) {
+    if (rockSpr) { const rh = s.w * (rockSpr.height / rockSpr.width); ctx.drawImage(rockSpr, s.x - s.w / 2, s.y - rh, s.w, rh); }
+    else { ctx.fillStyle = P.rock ?? '#5A5568'; ctx.fillRect(s.x - s.w / 2, s.y - s.w * 0.5, s.w, s.w * 0.5); }
+  }
 
   // أعمدة فوانيس على الطريق
   for (const t of [0.15, 0.42, 0.68, 0.88]) {
