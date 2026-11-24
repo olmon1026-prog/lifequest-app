@@ -166,3 +166,40 @@ export function fireflies(seed = 21, count = 16) {
     r: 6 + rnd() * 18, speed: 0.4 + rnd() * 0.9, phase: rnd() * 7,
   }));
 }
+
+// ——— توجيه المشي حول المباني ———
+// بصمة المشي لكل مبنى: جسم الواجهة الصلب (حتى خط السطح تقريبًا). الممثل يمشي أمام
+// المبنى (جنوب قاعدته) أو في العراء، ولا يعبر بصمته أبدًا — الخط المستقيم عبرها هو
+// ما كان يرسمه فوق الواجهة/السطح.
+export function buildingRect(b) {
+  return { x0: b.x - b.w / 2 + 16, x1: b.x + b.w / 2 - 16, y0: b.y - 88, y1: b.y - 10 };
+}
+export function pointBlocked(x, y) {
+  // المباني الأمامية (front) تحجب الممثل صحيحًا — العبور خلفها سليم؛ الممنوع هو عبور بصمات الخلفية فقط
+  return BUILDINGS.some(b => !b.front && (() => { const r = buildingRect(b); return x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1; })());
+}
+function segBlocked(x0, y0, x1, y1) {
+  const n = Math.max(8, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6));
+  for (let i = 0; i <= n; i++) { const t = i / n; if (pointBlocked(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return true; }
+  return false;
+}
+// مسار نقاط من (x0,y0) إلى (x1,y1): مستقيم إن كان سالكًا، وإلا عبر الطريق الحجري
+// (أقرب نقطة للبداية ← عينة كثيفة على المنحنى ← أقرب نقطة للهدف ← الهدف).
+export function routeWaypoints(x0, y0, x1, y1) {
+  if (!segBlocked(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
+  const tA = nearestPathT(x0, y0), tB = nearestPathT(x1, y1);
+  const pts = [];
+  const [ts, te] = tA <= tB ? [tA, tB] : [tB, tA];
+  const pA = pathPoint(tA);
+  if (Math.hypot(pA.x - x0, pA.y - y0) > 4) pts.push(pA);
+  for (let t = ts + 0.04; t < te; t += 0.04) pts.push(pathPoint(t));
+  pts.push(pathPoint(tB));
+  // نقطة انصراف عن الطريق باتجاه الهدف إن كانت قفزة الخروج محجوبة
+  if (segBlocked(pts[pts.length - 1].x, pts[pts.length - 1].y, x1, y1)) {
+    const ex = pts[pts.length - 1].x;
+    pts.push({ x: ex, y: y1 }); // هبوط/صعود عمودي على خط الهدف
+  }
+  pts.push({ x: x1, y: y1 });
+  // تنقية: أسقط النقاط المتتالية المتطابقة تقريبًا
+  return pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 3);
+}

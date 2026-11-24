@@ -2,7 +2,7 @@
 import { store } from '../store.js';
 import { topbarHTML } from '../ui/topbar.js';
 import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, nearestPathT,
-         cameraFor, destinationProgress, destinationState, heroT, viewOffY } from './layout.js';
+         cameraFor, destinationProgress, destinationState, heroT, viewOffY, routeWaypoints } from './layout.js';
 import { drawScene, preloadBuildings } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
@@ -295,7 +295,7 @@ function startAchievement(s) {
   leaveHome();
   const dest = DESTINATIONS.find(d => d.id === s.destination) || DESTINATIONS[3];
   engine.active = { kind: 'achievement', scene: s, dest, label: ACTIVITY_LABEL[dest.id] || 'ينجز مهمة', step: 'go' };
-  sami.goTo(dest.spot.x, dest.spot.y, () => {
+  walkTo(sami, dest.spot.x, dest.spot.y, () => {
     engine.active.step = 'act';
     sami.pose = ACTIVITY_BY_DEST[dest.id] || 'work';
     engine.active.actT0 = performance.now(); // بداية لحظة الإنجاز (للنص العائم لمرة واحدة)
@@ -314,16 +314,16 @@ function startStory(s, state) {
       break;
     case 'firstTask': {
       const mid = pathPoint(0.5);
-      sami.goTo(mid.x, mid.y, () => { engine.active.step = 'act'; sami.pose = 'work'; engine.phaseEnds = performance.now() + 8000; });
+      walkTo(sami, mid.x, mid.y, () => { engine.active.step = 'act'; sami.pose = 'work'; engine.phaseEnds = performance.now() + 8000; });
       break;
     }
     case 'abandoned':
-      sami.goTo(614, 630, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
+      walkTo(sami, 614, 630, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
       break;
     case 'notebook':
-      sami.goTo(SPOTS.tree.x + 10, SPOTS.tree.y, () => {
+      walkTo(sami, SPOTS.tree.x + 10, SPOTS.tree.y, () => {
         engine.active.step = 'act'; sami.pose = 'read';
-        bondok.goTo(SPOTS.tree.x - 22, SPOTS.tree.y + 8, () => { bondok.pose = 'sit'; });
+        walkTo(bondok, SPOTS.tree.x - 22, SPOTS.tree.y + 8, () => { bondok.pose = 'sit'; });
         engine.phaseEnds = performance.now() + 9000;
       });
       break;
@@ -341,12 +341,18 @@ function chainWalk(actor, points, done) {
   actor.goTo(p.x, p.y, () => chainWalk(actor, rest, done));
 }
 
+// مشي موجَّه حول بصمات المباني: مستقيم إن كان سالكًا، وإلا عبر الطريق الحجري —
+// الخط المستقيم عبر واجهة كان يرسم الممثل فوق الجدار/السطح (تشخيص جولة p29)
+function walkTo(actor, x, y, done = null) {
+  chainWalk(actor, routeWaypoints(actor.x, actor.y, x, y), done || (() => {}));
+}
+
 // الراحة في البيت بدقة: بندق يصل أولًا، سامي يقف أمام الباب، الباب ينفتح بسلاسة،
 // يدخلان متلاشيين ويختفيان تمامًا، ثم يُغلق الباب. لا أثر لهما طوال الراحة.
 function goRestHome() {
   engine.resting = 'entering';
-  bondok.goTo(SAMI_DOOR.x + 4, SAMI_DOOR.y + 2, () => {
-    sami.goTo(SAMI_DOOR.x, SAMI_DOOR.y + 3, () => {
+  walkTo(bondok, SAMI_DOOR.x + 4, SAMI_DOOR.y + 2, () => {
+    walkTo(sami, SAMI_DOOR.x, SAMI_DOOR.y + 3, () => {
       engine.doorTarget = 1;
       engine.enterAt = performance.now() + 420; // بعد اكتمال فتح الباب
     });
@@ -360,10 +366,10 @@ function leaveHome() {
   engine.doorTarget = 1;
   sami.x = SAMI_DOOR.x; sami.y = SAMI_DOOR.y - 4;
   sami.visible = true; sami.alpha = 0; sami.pose = 'idle'; sami.fadeTo(1);
-  sami.goTo(SAMI_DOOR.x + 2, SAMI_DOOR.y + 18);
+  walkTo(sami, SAMI_DOOR.x + 2, SAMI_DOOR.y + 18);
   bondok.x = SAMI_DOOR.x; bondok.y = SAMI_DOOR.y - 2;
   bondok.visible = true; bondok.alpha = 0; bondok.fadeTo(1);
-  bondok.goTo(SAMI_DOOR.x + 18, SAMI_DOOR.y + 12, () => {
+  walkTo(bondok, SAMI_DOOR.x + 18, SAMI_DOOR.y + 12, () => {
     engine.doorTarget = 0;
     engine.resting = false;
   });
@@ -401,7 +407,7 @@ function tickEngine(now) {
     if (r.activity === 'read' || r.activity === 'sleep') goRestHome();
     return;
   }
-  if (!sami.moving && Math.hypot(spot.x - sami.x, spot.y - sami.y) > 8) sami.goTo(spot.x, spot.y);
+  if (!sami.moving && Math.hypot(spot.x - sami.x, spot.y - sami.y) > 8) walkTo(sami, spot.x, spot.y);
   else if (!sami.moving && sami.pose !== r.activity) sami.pose = r.activity;
 }
 
@@ -411,11 +417,11 @@ function tickBondok(now) {
   if (sami.pose === 'sleep') { bondok.pose = 'sleep'; return; }
   if (bondok.pose === 'sleep') bondok.pose = 'idle';
   const d = Math.hypot(sami.x - bondok.x, sami.y - bondok.y);
-  if (d > 80) { bondok.pose = 'idle'; bondok.goTo(sami.x + 20, sami.y + 7); return; }
+  if (d > 80) { bondok.pose = 'idle'; walkTo(bondok, sami.x + 20, sami.y + 7); return; }
   if (now > engine.wanderAt && !engine.active) {
     engine.wanderAt = now + 7000 + Math.random() * 8000;
     if (Math.random() < 0.35) bondok.pose = bondok.pose === 'sit' ? 'idle' : 'sit';
-    else bondok.goTo(bondok.x + (Math.random() - 0.5) * 90, bondok.y + (Math.random() - 0.5) * 40);
+    else walkTo(bondok, bondok.x + (Math.random() - 0.5) * 90, bondok.y + (Math.random() - 0.5) * 40);
   }
 }
 
