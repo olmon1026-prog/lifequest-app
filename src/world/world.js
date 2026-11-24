@@ -53,7 +53,9 @@ export async function renderWorld(app, state) {
   canvas.width = box.width * dpr; canvas.height = box.height * dpr;
   ctx.scale(dpr, dpr);
   const scale = Math.max(box.width / VIEW_W, box.height / VIEW_H); // تغطية لا احتواء
-  const offX = (box.width - VIEW_W * scale) / 2, offY = (box.height - VIEW_H * scale) / 2;
+  // منطقة HUD آمنة: خط سير البطل (حتى باب البيت y≈630) لا ينزل تحت شريط «المهمة التالية» مهما كان مقاس الشاشة
+  const offX = (box.width - VIEW_W * scale) / 2;
+  const offY = Math.min((box.height - VIEW_H * scale) / 2, box.height - 56 - 630 * scale);
 
   if (!sheets) {
     try {
