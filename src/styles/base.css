@@ -26,17 +26,18 @@ h1{font-size:22px} h2{font-size:17px} h3{font-size:15px}
 
 /* الشريط السفلي العائم */
 #dock{
-  position:fixed; right:16px; left:16px; bottom:var(--dock-bottom);
-  height:var(--dock-h); border-radius:var(--radius);
-  background:var(--panel); display:flex; z-index:50;
-  box-shadow:0 6px 24px rgba(11,24,56,.35);
+  position:fixed; right:14px; left:14px; bottom:var(--dock-bottom);
+  height:var(--dock-h); border-radius:var(--radius); padding:6px; gap:4px;
+  background:#fff; display:flex; z-index:50;
+  border:1px solid #D5E6E2;
+  box-shadow:0 8px 24px rgba(14,34,56,.14);
 }
 #dock a{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:2px; color:#9FB4C4; font-size:11px; text-decoration:none; border-radius:var(--radius);
+  gap:3px; color:#5A7280; font-size:12px; font-weight:400; text-decoration:none; border-radius:16px;
 }
 #dock a .ico{font-size:18px}
-#dock a.active{color:var(--amber); font-weight:bold}
+#dock a.active{background:#D9F1EC; color:#0F5E5E; font-weight:700}
 
 /* شريط علوي داخل الشاشات */
 .topbar{
@@ -51,16 +52,17 @@ h1{font-size:22px} h2{font-size:17px} h3{font-size:15px}
 .xpbar .lbl{font-size:11px; margin-bottom:4px; color:var(--foam)}
 .xpbar .track{height:10px; background:#061022; border-radius:5px; overflow:hidden}
 .xpbar .fill{height:100%; background:var(--amber); transition:width .4s}
-.streak{font-size:12px; font-weight:bold; color:var(--amber); white-space:nowrap}
+.streak{font-size:12px; font-weight:bold; color:#6B4600; background:#FFF1CC; border-radius:12px; padding:4px 10px; white-space:nowrap}
 
 /* زر الإضافة العائم */
 .fab{
   position:fixed; left:16px; bottom:calc(var(--dock-h) + var(--dock-bottom) + 18px);
   width:56px; height:56px; border-radius:18px; z-index:40;
-  background:var(--amber); color:#1a1c2c; font-size:30px; line-height:1;
-  box-shadow:0 4px 0 #b78a2e, 0 8px 20px rgba(0,0,0,.25);
+  background:var(--amber); color:#0E2238; font-size:32px; line-height:1;
+  border:3px solid #0E2238; border-radius:16px;
+  box-shadow:0 4px 0 #0E2238;
 }
-.fab:active{transform:translateY(2px); box-shadow:0 2px 0 #b78a2e}
+.fab:active{transform:translateY(2px); box-shadow:0 2px 0 #0E2238}
 
 /* بطاقات عامة */
 .card{
