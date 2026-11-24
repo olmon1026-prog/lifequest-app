@@ -2,7 +2,7 @@
 // الكاميرا تتبع سامي؛ الطبقة البعيدة تتحرك بعامل 0.35 لعمق حقيقي.
 import { W, H, VIEW_W, VIEW_H, SKY_H, SEA_TOP, SHORE, MOON, BUILDINGS, SAMI_HOUSE,
          CHERRY_TREE, SAMI_DOORWAY, LIGHTHOUSE, ROCK_SPOTS, pathPoint, stars, fireflies, rng } from './layout.js';
-import { PAL, dither, poly, mountains, sea, house, ruinedHouse, cliff, lighthouse,
+import { PAL, dither, poly, mix, mountains, sea, house, ruinedHouse, cliff, lighthouse,
          cherryTree, beachHut, workshop, market, road, forestEdge, doorway } from './scenery.js';
 
 const STARFIELD = stars(7);
@@ -36,7 +36,31 @@ function drawBuilding(ctx, b, phase) {
   return h;
 }
 const FLIES = fireflies(21);
-const farCache = new Map(), nearCache = new Map();
+const farCache = new Map(), nearCache = new Map(), midCache = new Map();
+
+// الطبقة الوسطى: رؤوس ساحلية بعيدة تغلق الخليج عند خط الشاطئ، بشلل 0.65 (بين البعيد 0.35 والقريب 1.0).
+// منظور جوي أخف من الجبال لأنها أقرب للعين (مزج 35% نحو skyLow بدل 50%).
+function midLayer(phase) {
+  if (midCache.has(phase)) return midCache.get(phase);
+  const P = PAL[phase];
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  // لون أخضر مغبش (غطاء نباتي بعيد) لا يُقرأ امتدادًا لرمل الشاطئ القريب
+  // لون أخضر مغبش (غطاء نباتي بعيد) لا يُقرأ امتدادًا لرمل الشاطئ القريب
+  const dune = mix(P.grassB, P.skyLow, 0.35), crest = mix(P.grassB, P.skyLow, 0.18);
+  for (const [x0, x1, peak] of [[26, 258, 70], [556, 796, 85]]) {
+    const base = SHORE + 20, mid = (x0 + x1) / 2;
+    poly(ctx, [[x0 - 12, base], [x0 + (x1 - x0) * 0.22, base - peak * 0.7], [mid, base - peak],
+               [x1 - (x1 - x0) * 0.2, base - peak * 0.55], [x1 + 12, base]], dune);
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x0 - 12, base - 3, x1 - x0 + 24, 3); // خط ملامسة الماء
+    ctx.fillStyle = crest;
+    ctx.fillRect(mid - 30, base - peak - 2, 60, 2);
+    ctx.fillRect(x0 + (x1 - x0) * 0.2, Math.round(base - peak * 0.7) - 1, 34, 2);
+  }
+  midCache.set(phase, { cv });
+  return midCache.get(phase);
+}
 
 // الطبقة البعيدة: سماء + نجوم + قمر + جبال + بحر (تتحرك بشلل 0.35)
 function farLayer(phase) {
@@ -259,6 +283,10 @@ function drawBackStage(ctx, w, h, time, env) {
       ctx.globalAlpha = 1;
     }
   }
+
+  // وسط بشلل 0.65: رؤوس الخليج بين البحر (0.35) والأرض (1.0)
+  const { cv: midCv } = midLayer(phase);
+  ctx.drawImage(midCv, Math.round(camX * 0.65), 0, VIEW_W, H, 0, 0, VIEW_W, H);
 
   // قريب (الطبقة الخلفية: أرض وطريق ومبانٍ شمالية)
   ctx.drawImage(near, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);

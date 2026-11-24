@@ -129,6 +129,7 @@ export async function renderWorld(app, state) {
   let last = performance.now();
   const loop = (now) => {
     if (!document.body.contains(canvas)) { raf = null; return; }
+    const w0 = performance.now(); // قياس زمن العمل الفعلي داخل الإطار (ليس إيقاع vsync)
     const dt = Math.min(50, now - last); last = now;
     const reduce = store.state.settings.reduceMotion;
 
@@ -185,15 +186,23 @@ export async function renderWorld(app, state) {
       const aw = (sheets?.[a.name]?.frameWidth || 50) * a.scale * scale / 2;
       return { l: ax - aw - 6, r: ax + aw + 6, t: ay - ah - 6, b: ay + 4 };
     });
+    // التنبيهات العائمة فوق المشهد (ملخص اليوم أسفل اليسار، شريحة حالة سامي أعلى اليمين):
+    // اللافتة تُرفع فوقها كما تُرفع فوق رؤوس الممثلين — لا تغطيها ولا تُغطى بها
+    const overlayRects = [];
+    for (const sel of ['#digest', '#sami-doing']) {
+      const o = app.querySelector(sel);
+      if (o && o.innerHTML && o.offsetHeight > 0)
+        overlayRects.push({ l: o.offsetLeft - 4, r: o.offsetLeft + o.offsetWidth + 4, t: o.offsetTop, b: o.offsetTop + o.offsetHeight });
+    }
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
       const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة أفقيًا
       const hudTop = nt && nt.offsetTop ? nt.offsetTop : box.height - 56; // قياس فعلي لسطح شريط «المهمة التالية»
       const lh = el.offsetHeight || 34;
-      let topY = Math.max(4, Math.min(hudTop - lh - 2, ly - lh - 6)); // فوق نقطة الوجهة وخارج منطقة HUD
-      for (const rc of actorRects) { // ولا تغطي سامي/بندق أينما وقفوا — تُرفع فوق رأس الممثل
+      let topY = Math.max(60, Math.min(hudTop - lh - 2, ly - lh - 6)); // فوق نقطة الوجهة، تحت الشريط العلوي، وخارج منطقة HUD
+      for (const rc of [...actorRects, ...overlayRects]) { // ولا تغطي سامي/بندق ولا التنبيهات العائمة — تُرفع فوقها
         if (clamped + 44 > rc.l && clamped - 44 < rc.r && topY + lh > rc.t && topY < rc.b)
-          topY = Math.max(4, rc.t - lh - 2);
+          topY = Math.max(60, rc.t - lh - 2); // لا تختفي تحت الشريط العلوي حتى عند الرفع
       }
       el.style.left = (clamped - 44) + 'px';
       el.style.top = topY + 'px';
@@ -210,6 +219,8 @@ export async function renderWorld(app, state) {
           padding:3px 9px;color:#CFF5EA;font-size:11px">سامي: ${txt}</span>`;
       }
     }
+    (engine.workMs ??= []).push(Math.round((performance.now() - w0) * 100) / 100);
+    if (engine.workMs.length > 900) engine.workMs.shift();
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
