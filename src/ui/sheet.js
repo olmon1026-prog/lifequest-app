@@ -1,18 +1,20 @@
 // الشاشة السفلية لإضافة/تعديل عنصر (PROJECT_MEMORY §10)
 import { icon } from './icons.js';
 import { addItem, updateItem, archiveItem, deleteItem, countDescendants } from '../db/repo.js';
-import { quickDate, todayStr, fmtDateAr, goalPeriod } from '../core/dates.js';
+import { quickDate, todayStr, fmtDateAr, goalPeriod, weekStartOf, monthName, arNum } from '../core/dates.js';
 import { store } from '../store.js';
 
 const TYPE_LABELS = { task: 'مهمة', subtask: 'فرعية', stage: 'مرحلة', project: 'مشروع', goal_week: 'هدف أسبوعي', goal_month: 'هدف شهري', goal_year: 'هدف سنوي' };
 const PRI_XP = { 1: '+١٠ XP', 2: '+٢٠ XP', 3: '+٣٠ XP' };
+const GOAL_TYPES = ['goal_year', 'goal_month', 'goal_week'];
+function isGoalType(t) { return GOAL_TYPES.includes(t); }
 
 export function openAddSheet(preset = {}) {
   const root = document.getElementById('sheet-root');
   const today = todayStr();
   const state = {
     title: '', type: preset.type || 'task', parentId: preset.parentId || null,
-    priority: preset.priority || 1, dueKind: preset.dueDate ? null : 'today', area: preset.area || null,
+    priority: preset.priority || 1, dueKind: preset.dueDate ? null : (isGoalType(preset.type) ? 'none' : 'today'), area: preset.area || null,
     dueDate: preset.dueDate || null, dueTime: null, notes: '',
     keepOpen: true,
   };
@@ -36,6 +38,16 @@ export function openAddSheet(preset = {}) {
     return parts.join(' ‹ ');
   }
 
+  const isGoal = () => isGoalType(state.type);
+
+  function periodHint() {
+    if (!isGoal()) return '';
+    const ws = store.state.settings.weekStart ?? 6;
+    if (state.type === 'goal_year') return `هيتحفظ في أهداف سنة ${arNum(today.slice(0, 4))}`;
+    if (state.type === 'goal_month') return `هيتحفظ في أهداف شهر ${monthName(+today.slice(0, 4), +today.slice(5, 7))} ${arNum(today.slice(0, 4))}`;
+    return `هيتحفظ في أهداف أسبوع يبدأ ${fmtDateAr(weekStartOf(today, ws))}`;
+  }
+
   function render() {
     root.innerHTML = `
       <div class="sheet-overlay"></div>
@@ -44,7 +56,8 @@ export function openAddSheet(preset = {}) {
         <div class="field"><label>العنوان</label>
           <input type="text" id="f-title" maxlength="120" value="${esc(state.title)}" placeholder="ماذا تريد أن تنجز؟" autofocus>
         </div>
-        <div class="field"><label>الموعد</label>
+        ${isGoal() ? `<div class="muted" style="font-size:12px;margin:-4px 0 10px">${periodHint()}</div>` : ''}
+        <div class="field" id="f-due-wrap" style="${isGoal() ? 'display:none' : ''}"><label>الموعد</label>
           <div class="chip-row" id="f-duekinds">
             ${[['today', 'اليوم'], ['tomorrow', 'غدًا'], ['weekEnd', 'نهاية الأسبوع'], ['nextWeek', 'الأسبوع القادم'], ['none', 'بدون']].map(([k, l]) =>
               `<button class="chip ${state.dueKind === k ? 'sel' : ''}" data-k="${k}">${l}</button>`).join('')}
@@ -103,7 +116,15 @@ export function openAddSheet(preset = {}) {
     };
     root.querySelector('#f-types').onclick = e => {
       const b = e.target.closest('[data-t]'); if (!b) return;
+      const wasGoal = isGoal();
       state.type = b.dataset.t; markChips('#f-types', 't', state.type);
+      if (isGoal() !== wasGoal) {
+        if (isGoal()) { state.dueKind = 'none'; state.dueDate = null; state.dueTime = null; }
+        else if (!state.dueDate) { state.dueKind = 'today'; state.dueDate = quickDate('today', today, store.state.settings.weekStart ?? 6); }
+        render(); // يعيد رسم حقل الموعد والتلميح مع الحفاظ على state
+        const ti = root.querySelector('#f-title'); if (ti) { ti.value = state.title; ti.focus(); }
+        const no = root.querySelector('#f-notes'); if (no) no.value = state.notes;
+      }
     };
     root.querySelector('#f-pris').onclick = e => {
       const b = e.target.closest('[data-p]'); if (!b) return;
@@ -203,6 +224,7 @@ export function openEditSheet(item) {
     root.querySelector('#f-notes').dispatchEvent(new Event('input'));
     root.querySelector('#f-date').value = item.due ? item.due.date : '';
     root.querySelector('#f-time').value = (item.due && item.due.time) || '';
+    root.querySelector('#f-time').dispatchEvent(new Event('change'));
     root.querySelectorAll('#f-pris .chip').forEach(c => c.classList.toggle('sel', +c.dataset.p === item.priority));
   }, 0);
 }
