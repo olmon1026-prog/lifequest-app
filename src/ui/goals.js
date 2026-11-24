@@ -1,4 +1,5 @@
 // تبويب الأهداف: سنة/شهر/أسبوع، شجرة قابلة للطي بشريط تقدم (§10)
+import { icon } from './icons.js';
 import { store } from '../store.js';
 import { topbarHTML } from './topbar.js';
 import { buildChildrenMap, progressOf } from '../core/progress.js';
@@ -43,7 +44,7 @@ export function renderGoals(app, state) {
 
   const tree = app.querySelector('#tree');
   if (!roots.length && !extra.length) {
-    tree.innerHTML = `<div class="empty"><div class="big">🎯</div>لا أهداف في هذا النطاق. اضغط + وأضف هدفًا.</div>`;
+    tree.innerHTML = `<div class="empty"><div class="big">${icon('target', 40)}</div>لا أهداف في هذا النطاق. اضغط + وأضف هدفًا.</div>`;
     return;
   }
   for (const r of [...roots, ...extra]) tree.appendChild(nodeEl(r, childrenMap, 0));

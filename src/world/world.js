@@ -96,7 +96,7 @@ export async function renderWorld(app, state) {
       <b style="color:#FFC857">${arNum(doneCount)} / ${arNum(totalCount)}</b></div>`;
   } else {
     nt.innerHTML = `<div style="background:rgba(14,34,56,.9);border:2px solid #33475C;border-radius:12px;
-      padding:8px 12px;color:#CFF5EA;font-size:13px;text-align:center">لا مهام بعد — اضغط + وابدأ رحلتك 🌙</div>`;
+      padding:8px 12px;color:#CFF5EA;font-size:13px;text-align:center">لا مهام بعد — اضغط + وابدأ رحلتك</div>`;
   }
   app.querySelector('#fab').onclick = () => { unlockAudio(); openAddSheet({ dueDate: tStr }); };
 
@@ -172,7 +172,7 @@ export async function renderWorld(app, state) {
     // شريحة نشاط سامي
     const chip = app.querySelector('#sami-doing');
     if (chip) {
-      const txt = engine.resting ? 'يستريح في بيته 🏠' : (engine.active?.label || routineFor(new Date()).label);
+      const txt = engine.resting ? 'يستريح في بيته' : (engine.active?.label || routineFor(new Date()).label);
       if (chip.dataset.v !== txt) {
         chip.dataset.v = txt;
         chip.innerHTML = `<span style="background:rgba(14,34,56,.85);border:1px solid #33475C;border-radius:9px;

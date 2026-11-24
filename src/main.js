@@ -1,4 +1,5 @@
 // LifeQuest — نقطة الدخول
+import { icon } from './ui/icons.js';
 import { initRouter } from './ui/router.js';
 import { openDB } from './db/db.js';
 import { store } from './store.js';
@@ -33,5 +34,5 @@ async function boot() {
 boot().catch(err => {
   console.error(err);
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="empty"><div class="big">⚠️</div>حصل خطأ في التشغيل. جرّب تحديث الصفحة.</div>';
+  app.innerHTML = '<div class="empty"><div class="big">' + icon('warn', 40) + '</div>حصل خطأ في التشغيل. جرّب تحديث الصفحة.</div>';
 });

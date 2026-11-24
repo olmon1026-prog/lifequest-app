@@ -39,6 +39,13 @@ h1{font-size:22px} h2{font-size:17px} h3{font-size:15px}
 #dock a .ico{font-size:18px}
 #dock a.active{background:#D9F1EC; color:#0F5E5E; font-weight:700}
 
+.ic{vertical-align:middle;flex-shrink:0}
+#dock a .ic{display:block}
+.streak .ic{margin-left:2px}
+.big .ic{color:var(--sub)}
+.row .ic{color:var(--sub)}
+#sheet-root .btn .ic{vertical-align:-3px}
+
 /* شريط علوي داخل الشاشات */
 .topbar{
   display:flex; align-items:center; gap:12px;

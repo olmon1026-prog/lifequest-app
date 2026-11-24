@@ -1,4 +1,5 @@
 // تبويب المزيد: استيراد/تصدير/إعدادات/إحصائيات موجزة
+import { icon } from './icons.js';
 import { store, emit } from '../store.js';
 import { topbarHTML } from './topbar.js';
 import { totalXP, levelProgress, levelTitle } from '../core/xp.js';
@@ -24,7 +25,7 @@ export function renderMore(app, state) {
       <div class="muted">كل بياناتك على جهازك</div>
     </div>
     <div class="card" style="display:flex;align-items:center;gap:12px">
-      <div style="width:52px;height:52px;border-radius:14px;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:26px">🧑‍🚀</div>
+      <div style="width:52px;height:52px;border-radius:14px;background:var(--navy);display:flex;align-items:center;justify-content:center;color:var(--foam)">${icon('hero', 26)}</div>
       <div style="flex:1">
         <div style="font-weight:bold">المغامر · ${levelTitle(lp.level)}</div>
         <div class="muted">أفضل سلسلة ${arNum(best)} ${best <= 2 ? 'يوم' : 'أيام'}</div>
@@ -33,15 +34,15 @@ export function renderMore(app, state) {
     </div>
     <div style="padding:12px 16px 2px;font-weight:bold;font-size:14px">البيانات</div>
     <div class="card" style="padding:0">
-      <button class="row" id="import-btn">📥 <div><b>استيراد خطة</b><div class="muted">من نموذج ذكاء اصطناعي (JSON)</div></div></button>
-      <button class="row" id="export-btn">💾 <div><b>تصدير نسخة احتياطية</b><div class="muted">${lastBackup ? 'آخر نسخة: ' + arNum(lastBackup) : 'ملف على جهازك'}</div></div></button>
-      <button class="row" id="restore-btn">♻️ <div><b>استعادة نسخة احتياطية</b><div class="muted">تستبدل كل البيانات الحالية</div></div></button>
+      <button class="row" id="import-btn">${icon('import')} <div><b>استيراد خطة</b><div class="muted">من نموذج ذكاء اصطناعي (JSON)</div></div></button>
+      <button class="row" id="export-btn">${icon('save')} <div><b>تصدير نسخة احتياطية</b><div class="muted">${lastBackup ? 'آخر نسخة: ' + arNum(lastBackup) : 'ملف على جهازك'}</div></div></button>
+      <button class="row" id="restore-btn">${icon('restore')} <div><b>استعادة نسخة احتياطية</b><div class="muted">تستبدل كل البيانات الحالية</div></div></button>
     </div>
     <div style="padding:12px 16px 2px;font-weight:bold;font-size:14px">التطبيق</div>
     <div class="card" style="padding:0">
-      <button class="row" id="settings-btn">⚙️ <div><b>الإعدادات</b><div class="muted">الصوت · بداية الأسبوع: ${state.settings.weekStart === 0 ? 'الأحد' : 'السبت'}</div></div></button>
-      <div class="row" style="opacity:.5">📊 <div><b>الإحصائيات</b><div class="muted">قريبًا</div></div></div>
-      <div class="row" style="opacity:.5">🏆 <div><b>الإنجازات</b><div class="muted">قريبًا</div></div></div>
+      <button class="row" id="settings-btn">${icon('gear')} <div><b>الإعدادات</b><div class="muted">الصوت · بداية الأسبوع: ${state.settings.weekStart === 0 ? 'الأحد' : 'السبت'}</div></div></button>
+      <div class="row" style="opacity:.5">${icon('stats')} <div><b>الإحصائيات</b><div class="muted">قريبًا</div></div></div>
+      <div class="row" style="opacity:.5">${icon('target')} <div><b>الإنجازات</b><div class="muted">قريبًا</div></div></div>
     </div>
     <div class="muted" style="text-align:center;padding:16px">LifeQuest · يعمل بدون إنترنت · <button id="force-update" style="text-decoration:underline;color:var(--teal)">تحديث إجباري</button></div>
     <input type="file" id="file-input" accept=".json,application/json" style="display:none">

@@ -1,4 +1,5 @@
 // تبويب اليوم: متأخر · اليوم · قادم · بدون موعد (§10) مع تراجع ٥ ثوانٍ
+import { icon } from './icons.js';
 import { store } from '../store.js';
 import { topbarHTML } from './topbar.js';
 import { todayStr, addDays, fmtDateAr, arNum, weekStartOf } from '../core/dates.js';
@@ -99,7 +100,7 @@ export function renderToday(app, state) {
     }
   }
   if (!items.filter(i => i.status !== 'done').length && !doneToday.length) {
-    sections.innerHTML = `<div class="empty"><div class="big">🌙</div>لا مهام بعد. اضغط + وأضف أول مهمة.</div>`;
+    sections.innerHTML = `<div class="empty"><div class="big">${icon('moon', 40)}</div>لا مهام بعد. اضغط + وأضف أول مهمة.</div>`;
   }
 
   app.querySelector('#fab').onclick = () => openAddSheet({ dueDate: today });

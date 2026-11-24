@@ -1,5 +1,5 @@
 // Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
-const BUILD = '2026-11-24-p2f';
+const BUILD = '2026-11-24-p2g';
 const CACHE = 'lq-' + BUILD;
 
 const FILES = [
@@ -23,6 +23,7 @@ const FILES = [
   'src/db/db.js',
   'src/db/migrations.js',
   'src/db/repo.js',
+  'src/ui/icons.js',
   'src/ui/router.js',
   'src/ui/topbar.js',
   'src/ui/sheet.js',

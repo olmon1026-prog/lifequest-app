@@ -1,4 +1,5 @@
 // الشاشة السفلية لإضافة/تعديل عنصر (PROJECT_MEMORY §10)
+import { icon } from './icons.js';
 import { addItem, updateItem, archiveItem, deleteItem, countDescendants } from '../db/repo.js';
 import { quickDate, todayStr, fmtDateAr } from '../core/dates.js';
 import { store } from '../store.js';
@@ -80,8 +81,8 @@ export function openAddSheet(preset = {}) {
         <button class="btn secondary" id="f-saveclose">حفظ وإغلاق</button>
         ${preset.editId ? `
         <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn secondary" id="f-archive" style="flex:1">🗄 أرشفة</button>
-          <button class="btn secondary" id="f-delete" style="flex:1;color:var(--warn);border-color:var(--warn)">🗑 حذف</button>
+          <button class="btn secondary" id="f-archive" style="flex:1">${icon('archive', 16)} أرشفة</button>
+          <button class="btn secondary" id="f-delete" style="flex:1;color:var(--warn);border-color:var(--warn)">${icon('trash', 16)} حذف</button>
         </div>` : ''}
       </div>`;
 
