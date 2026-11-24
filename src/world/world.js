@@ -168,9 +168,12 @@ export async function renderWorld(app, state) {
     // إزاحة اللافتات مع الكاميرا
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
-      const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة
+      const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة أفقيًا
+      const hudTop = nt && nt.offsetTop ? nt.offsetTop : box.height - 56; // قياس فعلي لسطح شريط «المهمة التالية»
+      const lh = el.offsetHeight || 34;
+      const topY = Math.max(4, Math.min(hudTop - lh - 2, ly + 8)); // ورأسيًا فوق منطقة HUD دائمًا
       el.style.left = (clamped - 44) + 'px';
-      el.style.top = (ly + 8) + 'px';
+      el.style.top = topY + 'px';
       el.style.display = (lx < -120 || lx > box.width + 120) ? 'none' : '';
     }
 

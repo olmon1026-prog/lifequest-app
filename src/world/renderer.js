@@ -57,30 +57,9 @@ function farLayer(phase) {
   }
   ctx.globalAlpha = 1;
 
-  const mx = day ? 620 : MOON.x, my = day ? 64 : MOON.y, mr = day ? 26 : MOON.r;
-  const glow = ctx.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 2.8);
-  glow.addColorStop(0, day ? 'rgba(255,246,220,.5)' : 'rgba(207,245,234,.4)');
-  glow.addColorStop(1, 'rgba(207,245,234,0)');
-  ctx.fillStyle = glow; ctx.fillRect(mx - mr * 3, my - mr * 3, mr * 6, mr * 6);
-  ctx.fillStyle = P.moon; ctx.beginPath(); ctx.arc(mx, my, mr, 0, 7); ctx.fill();
-  if (!day) {
-    ctx.fillStyle = P.moonCrater;
-    ctx.beginPath(); ctx.arc(mx - 10, my - 6, 6, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + 9, my + 10, 4.5, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + 4, my - 12, 3, 0, 7); ctx.fill();
-  }
-
   mountains(ctx, P, 0); mountains(ctx, P, 1);
   ctx.fillStyle = P.fog; ctx.fillRect(0, SKY_H - 22, W, 22);
   sea(ctx, P);
-  // عمود انعكاس القمر الثابت (الوميض حي)
-  if (!day) {
-    ctx.fillStyle = 'rgba(207,245,234,.16)';
-    for (let i = 0; i < 10; i++) {
-      const w = 20 + i * 7;
-      ctx.fillRect(MOON.x - w / 2 + (i % 2) * 4, SEA_TOP + 8 + i * 12, w, 2);
-    }
-  }
   farCache.set(phase, { cv });
   return farCache.get(phase);
 }
@@ -224,6 +203,26 @@ function drawBackStage(ctx, w, h, time, env) {
   const night = phase === 'night', day = phase === 'day';
   const still = env.reduceMotion;
 
+  // قمر/شمس حيّان بشلل خفيف 0.08: يبقيان داخل الكادر عبر كامل مدى الكاميرا (كانا يخرجان كليًا بشلل 0.35)
+  const mpx = 300 - camX * 0.08, mpy = day ? 120 : 130, mpr = day ? 26 : MOON.r; // موضع يمين-وسط خالٍ من الشريط العلوي وزر الإضافة
+  const glow = ctx.createRadialGradient(mpx, mpy, mpr * 0.5, mpx, mpy, mpr * 2.8);
+  glow.addColorStop(0, day ? 'rgba(255,246,220,.5)' : 'rgba(207,245,234,.4)');
+  glow.addColorStop(1, 'rgba(207,245,234,0)');
+  ctx.fillStyle = glow; ctx.fillRect(mpx - mpr * 3, mpy - mpr * 3, mpr * 6, mpr * 6);
+  ctx.fillStyle = P.moon; ctx.beginPath(); ctx.arc(mpx, mpy, mpr, 0, 7); ctx.fill();
+  if (!day) {
+    ctx.fillStyle = P.moonCrater;
+    ctx.beginPath(); ctx.arc(mpx - 10, mpy - 6, 6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(mpx + 9, mpy + 10, 4.5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(mpx + 4, mpy - 12, 3, 0, 7); ctx.fill();
+    // عمود انعكاس ثابت يتبع موضع القمر الحي
+    ctx.fillStyle = 'rgba(207,245,234,.16)';
+    for (let i = 0; i < 10; i++) {
+      const rw = 20 + i * 7;
+      ctx.fillRect(mpx - rw / 2 + (i % 2) * 4, SEA_TOP + 8 + i * 12, rw, 2);
+    }
+  }
+
   // سحب منسابة (بشلل أخف)
   if (!still) {
     ctx.fillStyle = night ? 'rgba(20,40,80,.5)' : 'rgba(255,255,255,.35)';
@@ -255,7 +254,7 @@ function drawBackStage(ctx, w, h, time, env) {
         const lw = 34 - i * 3.5;
         ctx.globalAlpha = 0.4 - i * 0.05;
         ctx.fillStyle = P.moon;
-        ctx.fillRect(MOON.x - par - lw / 2 + Math.sin(time / 470 + i * 1.7) * 6, SEA_TOP + 12 + i * 14, lw, 2.5);
+        ctx.fillRect(mpx - lw / 2 + Math.sin(time / 470 + i * 1.7) * 6, SEA_TOP + 12 + i * 14, lw, 2.5);
       }
       ctx.globalAlpha = 1;
     }
