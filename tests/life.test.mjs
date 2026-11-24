@@ -140,9 +140,23 @@ t('الفصل الأول: الترتيب ثابت والشروط متدرجة', 
   assert.equal(nextStoryScene({ c1s1: 1, c1s2: 1, c1s3: 1, c1s4: 1, c1s5: 1 }, { completions: 9, phase: 'night' }), null);
 });
 
+
+t('مصباح المنارة: مظلمة قبل مشهد الليل، ضوء ضعيف بعده، شعاع كامل باكتمال أهداف الشهر', () => {
+  const today = '2026-11-24';
+  const g = (status, key) => ({ type: 'goal_month', status, archivedAt: null, period: key ? { kind: 'month', key } : null });
+  assert.equal(lighthouseLamp({}, [], today), 0);                       // قبل c1s5
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [], today), 1);              // بلا أهداف شهر
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [g('todo', '2026-11')], today), 1);   // لم تكتمل
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [g('done', '2026-11')], today), 2);   // اكتملت كلها
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [g('done', '2026-11'), g('todo', '2026-11')], today), 1);
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [g('done', '2026-10')], today), 1);   // شهر آخر لا يحتسب
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [g('done', null)], today), 2);        // بلا فترة = الشهر الحالي
+  assert.equal(lighthouseLamp({ c1s5: 1 }, [{ ...g('done', '2026-11'), archivedAt: 1 }], today), 1); // مؤرشف يُستبعد
+});
+
 console.log(`\n${passed} اختبار محرك حياة ناجح`);
 
-import { shouldRestAtHome } from '../src/world/life.js';
+import { shouldRestAtHome, lighthouseLamp } from '../src/world/life.js';
 import { cameraFor, nearestPathT, W, VIEW_W } from '../src/world/layout.js';
 
 t('الراحة في البيت: لا أثناء مشهد أو طابور، وتتطلب روتينًا هادئًا قرب البيت', () => {

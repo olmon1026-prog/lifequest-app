@@ -3,7 +3,7 @@ import { icon } from './icons.js';
 import { store } from '../store.js';
 import { topbarHTML } from './topbar.js';
 import { buildChildrenMap, progressOf } from '../core/progress.js';
-import { todayStr, weekStartOf, arNum, monthName } from '../core/dates.js';
+import { todayStr, weekStartOf, arNum, monthName, goalPeriod } from '../core/dates.js';
 import { openAddSheet, openEditSheet } from './sheet.js';
 
 let scope = 'month'; // year | month | week
@@ -17,6 +17,12 @@ export function renderGoals(app, state) {
     week: weekStartOf(today, weekStart),
   };
   const goalTypes = { year: 'goal_year', month: 'goal_month', week: 'goal_week' };
+  // أهداف أُضيفت بلا فترة (خارج شاشة الإضافة) تظهر فورًا بدل انتظار إعادة التحميل —
+  // إصلاح معروض فقط؛ التثبيت في القاعدة يتم عند الإقلاع عبر repairGoalPeriods.
+  for (const it of state.items) {
+    const gp = goalPeriod(it.type, today, weekStart);
+    if (gp && (!it.period || !it.period.key)) it.period = gp;
+  }
   const roots = state.items.filter(i => !i.archivedAt &&
     i.type === goalTypes[scope] && i.period && i.period.key === keys[scope]);
   // مشاريع بلا أب هدف ضمن النطاق تظهر أيضًا (مستوى الشهر/الأسبوع)

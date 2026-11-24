@@ -337,11 +337,12 @@ function drawBackStage(ctx, w, h, time, env) {
     ctx.restore();
   }
   lampP.lampX -= camX;
+  env._lampP = { lampX: lampP.lampX, lampY: lampP.lampY }; // للمسرح الأمامي (drawEffects): إحداثيات العرض بعد الكاميرا
 
   if ((env.lamp ?? 0) >= 2 && (night || phase === 'dusk')) {
     const ang = env.beamAngle ?? (time / 2600);
     const bx = Math.cos(ang), by = Math.sin(ang) * 0.25;
-    ctx.save(); ctx.translate(lampP.lampX - camX, lampP.lampY);
+    ctx.save(); ctx.translate(lampP.lampX, lampP.lampY); // lampX أصبح بإحداثيات العرض — لا طرح مضاعف لـ camX
     for (const ddir of [1, -1]) {
       const g = ctx.createLinearGradient(0, 0, ddir * 190 * Math.abs(bx) || ddir * 60, by * 190);
       g.addColorStop(0, 'rgba(255,220,140,.30)'); g.addColorStop(1, 'rgba(255,220,140,0)');

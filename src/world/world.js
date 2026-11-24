@@ -6,7 +6,7 @@ import { W, H, VIEW_W, VIEW_H, DESTINATIONS, SPOTS, SAMI_DOOR, pathPoint, neares
 import { drawScene, preloadBuildings } from './renderer.js';
 import { loadSheet } from './sprites.js';
 import { Actor } from './actors.js';
-import { dayPhase, routineFor, planScenes, newCompleteEvents, nextStoryScene, shouldRestAtHome } from './life.js';
+import { dayPhase, routineFor, planScenes, newCompleteEvents, nextStoryScene, shouldRestAtHome, lighthouseLamp } from './life.js';
 import { loadStory, markStory } from './story.js';
 import { sounds, unlockAudio, setMuted, vibrate } from './sound.js';
 import { openAddSheet } from '../ui/sheet.js';
@@ -168,7 +168,7 @@ export async function renderWorld(app, state) {
     const offY = Math.round(engine.offYS);
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
-      lamp: storyNow.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
+      lamp: lighthouseLamp(storyNow, state.items, todayStr()), flicker: engine.flicker && now < engine.flicker,
       camX: engine.camXi, doorT: engine.doorT, viewOffY: offY,
     };
     drawScene(ctx, box.width, box.height, now, env, 'back');
