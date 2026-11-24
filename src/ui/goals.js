@@ -73,7 +73,8 @@ function nodeEl(item, childrenMap, depth) {
         <div style="font-size:14px;${item.status === 'done' ? 'text-decoration:line-through;color:var(--sub)' : ''}">${esc(item.title)}</div>
         <div class="muted" style="font-size:11px">${typeBadge}</div>
       </div>
-      ${item.type !== 'task' && item.type !== 'subtask' && item.status !== 'done'
+      ${item.type !== 'task' && item.type !== 'subtask'
+        // الهدف المكتمل يقبل مهامًا جديدة: الإضافة تفتح المكتمل اشتقاقيًا تلقائيًا (D-005)
         ? `<button class="addkid" data-add="${item.id}" style="font-size:11px;padding:4px 8px;border:1px solid var(--teal);color:var(--teal);border-radius:10px;background:#fff;white-space:nowrap">+ مهمة</button>`
         : ''}
       <div style="font-weight:bold;font-size:13px;color:var(--teal)">${arNum(pct)}٪</div>

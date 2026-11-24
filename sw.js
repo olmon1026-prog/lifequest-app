@@ -1,5 +1,5 @@
 // Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
-const BUILD = '2026-11-24-p40';
+const BUILD = '2026-11-24-p41';
 const CACHE = 'lq-' + BUILD;
 
 const FILES = [
@@ -16,6 +16,7 @@ const FILES = [
   'src/core/dates.js',
   'src/core/progress.js',
   'src/core/xp.js',
+  'src/core/item-rules.js',
   'src/core/streak.js',
   'src/core/schema.js',
   'src/core/importer.js',

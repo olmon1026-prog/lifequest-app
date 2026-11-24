@@ -28,7 +28,9 @@ export function openAddSheet(preset = {}) {
   window.onpopstate = () => { root.innerHTML = ''; window.onpopstate = null; };
 
   function parentOptions() {
-    const items = store.state.items.filter(i => !i.archivedAt && i.status !== 'done' &&
+    // المكتمل لا يُعرض للاختيار الجديد، لكن الأب المُمرَّر مسبقًا (زر + مهمة في هدف مكتمل) يظهر دائمًا
+    const items = store.state.items.filter(i => !i.archivedAt &&
+      (i.status !== 'done' || i.id === state.parentId) &&
       ['goal_year', 'goal_month', 'goal_week', 'project', 'stage', 'task'].includes(i.type));
     return items.map(i => `<option value="${i.id}" ${state.parentId === i.id ? 'selected' : ''}>${esc(labelOf(i))}</option>`).join('');
   }
@@ -197,14 +199,18 @@ export function openAddSheet(preset = {}) {
     };
     const gp = goalPeriod(state.type, today, store.state.settings.weekStart ?? 6);
     if (gp) fields.period = gp;
-    if (preset.editId) {
-      await updateItem(preset.editId, fields);
-      close();
-    } else {
-      await addItem(fields);
-      toast('أُضيفت ✓');
-      if (keepOpen) { state.title = ''; state.notes = ''; render(); }
-      else close();
+    try {
+      if (preset.editId) {
+        await updateItem(preset.editId, fields);
+        close();
+      } else {
+        await addItem(fields);
+        toast('أُضيفت ✓');
+        if (keepOpen) { state.title = ''; state.notes = ''; render(); }
+        else close();
+      }
+    } catch (err) {
+      toast(err && err.message ? err.message : 'حصل خطأ أثناء الحفظ', true);
     }
   }
 
