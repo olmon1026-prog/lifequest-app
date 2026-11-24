@@ -122,8 +122,9 @@ export async function renderWorld(app, state) {
       padding:5px 10px;color:#CFF5EA;font-size:11px">ما حدث اليوم: <b style="color:#FFC857">${arNum(engine.digest.length)}</b> إنجاز إضافي</div>`;
   } else dg.innerHTML = '';
 
-  const story = loadStory();
-  const storyNext = nextStoryScene(story, { completions, phase });
+  // تقدم القصة يُقرأ طازجًا كل إطار: markStory داخل tickEngine يغيّر المستحق التالي،
+  // ولقطة واحدة محفوظة خارج الحلقة تعيد تشغيل نفس المشهد إلى الأبد (انحدار p19).
+  let storyNow = loadStory();
 
   if (raf) cancelAnimationFrame(raf);
   let last = performance.now();
@@ -134,7 +135,11 @@ export async function renderWorld(app, state) {
     const reduce = store.state.settings.reduceMotion;
 
     // الأولوية: مشهد قصصي مستحق ثم طابور الإنجازات ثم الروتين/الراحة
-    if (!engine.active && storyNext && !engine.queue.length) startStory(storyNext, state);
+    if (!engine.active && !engine.queue.length) {
+      storyNow = loadStory();
+      const storyNext = nextStoryScene(storyNow, { completions, phase });
+      if (storyNext) startStory(storyNext, state);
+    }
     if (!engine.active && engine.queue.length) startAchievement(engine.queue.shift());
     tickEngine(now, dt);
     tickBondok(now, dt);
@@ -155,7 +160,7 @@ export async function renderWorld(app, state) {
 
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
-      lamp: story.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
+      lamp: storyNow.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
       camX: engine.camXi, doorT: engine.doorT,
     };
     drawScene(ctx, box.width, box.height, now, env, 'back');
