@@ -96,7 +96,9 @@ export function mix(a, b, t) {
 }
 
 // جبال بعيدة مسننة بحواف مضيئة — منظور جوي رقمي: كل مستوى يُمزج نحو لون ضباب الأفق
-// (pixeli قاعدة ٨: مزج ٠/٢٥/٥٠٪ لكل مستوى — تطبيقنا: بعيد ٥٠٪ نحو skyLow، قريب ٢٥٪)
+// (pixeli قاعدة ٨: مزج ٠/٢٥/٥٠٪ لكل مستوى — تطبيقنا: بعيد ٦٥٪ نحو skyLow، قريب ٢٥٪.
+//  رُفع البعيد من ٥٠ إلى ٦٥٪ لأن mountFar الأساسي أغمق من mountNear فكان المزج يلغي
+//  فرق العمق نهارًا وليلًا — Δ اللون بين الطبقتين كان ٣ درجات RGB وأصبح ٤١ نهارًا)
 export function mountains(ctx, P, layer = 0, seed = 5) {
   const rnd = rng(seed + layer * 31);
   const base = SKY_H, amp = layer ? 52 : 76, step = layer ? 30 : 40;
@@ -104,7 +106,7 @@ export function mountains(ctx, P, layer = 0, seed = 5) {
   let x = -10;
   while (x < W + 10) { pts.push([x, base - 16 - rnd() * amp]); x += step * (0.6 + rnd() * 0.8); }
   pts.push([W + 10, base]);
-  const col = mix(layer ? P.mountNear : P.mountFar, P.skyLow, layer ? 0.25 : 0.5);
+  const col = mix(layer ? P.mountNear : P.mountFar, P.skyLow, layer ? 0.25 : 0.65);
   poly(ctx, pts, col);
   ctx.fillStyle = layer ? 'rgba(207,245,234,.10)' : 'rgba(207,245,234,.06)';
   for (let i = 1; i < pts.length - 1; i++) ctx.fillRect(pts[i][0] - 1, pts[i][1] - 2, 3, 2);

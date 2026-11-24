@@ -1,5 +1,5 @@
 // Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
-const BUILD = '2026-11-24-p22';
+const BUILD = '2026-11-24-p23';
 const CACHE = 'lq-' + BUILD;
 
 const FILES = [
