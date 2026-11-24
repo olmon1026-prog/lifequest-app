@@ -62,3 +62,11 @@ export function fmtDateAr(s) {
 export function arNum(n) {
   return String(n).replace(/[0-9]/g, c => '٠١٢٣٤٥٦٧٨٩'[+c]);
 }
+
+// فترة الهدف المخزنة {kind,key} من نوعه — المفتاح يطابق goals.js: سنة YYYY / شهر YYYY-MM / أسبوع يوم بدايته
+export function goalPeriod(type, today, weekStart = 6) {
+  if (type === 'goal_year')  return { kind: 'year',  key: today.slice(0, 4) };
+  if (type === 'goal_month') return { kind: 'month', key: today.slice(0, 7) };
+  if (type === 'goal_week')  return { kind: 'week',  key: weekStartOf(today, weekStart) };
+  return null;
+}

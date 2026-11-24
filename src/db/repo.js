@@ -1,7 +1,7 @@
 // العمليات على البيانات: إضافة/تعديل/إنجاز/تراجع/أرشفة/حذف + تسجيل الأحداث والاكتمال المشتق
 import { put, del, getOne, bulkWrite } from './db.js';
 import { uuid } from '../core/ids.js';
-import { todayStr } from '../core/dates.js';
+import { todayStr , goalPeriod } from '../core/dates.js';
 import { deriveCompletion, hasCycle } from '../core/progress.js';
 import { xpForComplete } from '../core/xp.js';
 import { store, emit } from '../store.js';
@@ -182,4 +182,20 @@ export async function getWorldRow() {
     await put('world', store.state.world);
   }
   return store.state.world;
+}
+
+// أهداف حفظها المستخدم قبل إصلاح حفظ الفترة كانت بلا period فلم تظهر في الشجرة — نسبتها للفترة الحالية
+export async function repairGoalPeriods() {
+  const today = todayStr();
+  const ws = store.state.settings.weekStart ?? 6;
+  let fixed = 0;
+  for (const it of store.state.items) {
+    const gp = goalPeriod(it.type, today, ws);
+    if (gp && (!it.period || it.period.key !== gp.key && !it.period.key)) {
+      it.period = gp; it.updatedAt = Date.now();
+      await put('items', it); fixed++;
+    }
+  }
+  if (fixed) emit();
+  return fixed;
 }

@@ -2,6 +2,7 @@
 import { icon } from './ui/icons.js';
 import { initRouter } from './ui/router.js';
 import { openDB } from './db/db.js';
+import { repairGoalPeriods } from './db/repo.js';
 import { store } from './store.js';
 import { registerSW } from './sw-register.js';
 
@@ -19,6 +20,7 @@ async function boot() {
   try {
     await withTimeout(openDB(), 3000);
     await withTimeout(store.load(), 3000);
+    await repairGoalPeriods().catch(() => 0); // إصلاح أهداف قديمة بلا فترة
   } catch (err) {
     // Export file is canonical (docs); app stays usable in-memory if IndexedDB is unavailable.
     store.state.ready = true;

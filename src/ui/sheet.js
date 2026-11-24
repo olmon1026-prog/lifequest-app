@@ -1,7 +1,7 @@
 // الشاشة السفلية لإضافة/تعديل عنصر (PROJECT_MEMORY §10)
 import { icon } from './icons.js';
 import { addItem, updateItem, archiveItem, deleteItem, countDescendants } from '../db/repo.js';
-import { quickDate, todayStr, fmtDateAr } from '../core/dates.js';
+import { quickDate, todayStr, fmtDateAr, goalPeriod } from '../core/dates.js';
 import { store } from '../store.js';
 
 const TYPE_LABELS = { task: 'مهمة', subtask: 'فرعية', stage: 'مرحلة', project: 'مشروع', goal_week: 'هدف أسبوعي', goal_month: 'هدف شهري', goal_year: 'هدف سنوي' };
@@ -171,6 +171,8 @@ export function openAddSheet(preset = {}) {
       priority: state.priority, notes: state.notes, area: state.area,
       due: state.dueDate ? { date: state.dueDate, time: state.dueTime } : null,
     };
+    const gp = goalPeriod(state.type, today, store.state.settings.weekStart ?? 6);
+    if (gp) fields.period = gp;
     if (preset.editId) {
       await updateItem(preset.editId, fields);
       close();
