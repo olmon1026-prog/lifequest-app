@@ -32,7 +32,7 @@ const ACTIVITY_BY_DEST = { health: 'work', learning: 'read', work: 'work', home:
 const ACTIVITY_LABEL = { health: 'يتمرن على الشاطئ', learning: 'يقرأ عند المنارة', work: 'يعمل في الورشة', home: 'يرتّب بيته', money: 'يجهّز بضاعة السوق', square: 'في الساحة' };
 
 export async function renderWorld(app, state) {
-  window.__world = { sami, bondok, engine }; // مقبض اختبار حركي (CDP)
+  window.__world = { sami, bondok, engine, startAchievement }; // مقبض اختبار حركي (CDP)
   setMuted(state.settings.sound === false);
   const phase = dayPhase(new Date());
   document.body.dataset.worldPhase = phase; // الشريط السفلي يتبع وقت المشهد
@@ -166,6 +166,18 @@ export async function renderWorld(app, state) {
     ctx.restore();
     drawScene(ctx, box.width, box.height, now, env, 'front');
 
+    // وهج الوجهة أثناء لحظة الإنجاز: تغذية راجعة مرئية فورية تقرأ بلا شرح (مصدر Habitica/Octalysis)
+    if (engine.active?.kind === 'achievement' && engine.active.step === 'act' && engine.active.dest) {
+      const d = engine.active.dest;
+      const pulse = reduce ? 0.3 : 0.25 + 0.15 * Math.sin(now / 300);
+      const gx = offX + (d.x - engine.camXi) * scale, gy = offY + d.y * scale;
+      const g = ctx.createRadialGradient(gx, gy - 30 * scale, 4, gx, gy - 30 * scale, 64 * scale);
+      g.addColorStop(0, `rgba(255,200,87,${pulse})`);
+      g.addColorStop(1, 'rgba(255,200,87,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - 64 * scale, gy - 94 * scale, 128 * scale, 128 * scale);
+    }
+
     // إزاحة اللافتات مع الكاميرا
     for (const { el, d } of labelEls) {
       const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
@@ -197,7 +209,7 @@ export async function renderWorld(app, state) {
 function startAchievement(s) {
   leaveHome();
   const dest = DESTINATIONS.find(d => d.id === s.destination) || DESTINATIONS[3];
-  engine.active = { kind: 'achievement', scene: s, label: ACTIVITY_LABEL[dest.id] || 'ينجز مهمة', step: 'go' };
+  engine.active = { kind: 'achievement', scene: s, dest, label: ACTIVITY_LABEL[dest.id] || 'ينجز مهمة', step: 'go' };
   sami.goTo(dest.spot.x, dest.spot.y, () => {
     engine.active.step = 'act';
     sami.pose = ACTIVITY_BY_DEST[dest.id] || 'work';
