@@ -49,14 +49,26 @@ function midLayer(phase) {
   // لون أخضر مغبش (غطاء نباتي بعيد) لا يُقرأ امتدادًا لرمل الشاطئ القريب
   // لون أخضر مغبش (غطاء نباتي بعيد) لا يُقرأ امتدادًا لرمل الشاطئ القريب
   const dune = mix(P.grassB, P.skyLow, 0.35), crest = mix(P.grassB, P.skyLow, 0.18);
-  for (const [x0, x1, peak] of [[26, 258, 70], [556, 796, 85]]) {
-    const base = SHORE + 20, mid = (x0 + x1) / 2;
-    poly(ctx, [[x0 - 12, base], [x0 + (x1 - x0) * 0.22, base - peak * 0.7], [mid, base - peak],
-               [x1 - (x1 - x0) * 0.2, base - peak * 0.55], [x1 + 12, base]], dune);
-    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x0 - 12, base - 3, x1 - x0 + 24, 3); // خط ملامسة الماء
+  for (const [x0, x1, peak, seed] of [[26, 258, 56, 11], [556, 796, 66, 47]]) {
+    const base = SHORE + 20;
+    // خط رأس مسنن بـ rng بغلاف مركب (قمتان غير متساويتين + تعرج) — لا قبة متماثلة ولا حواف مستقيمة
+    const rnd = rng(seed);
+    const pts = [[x0 - 12, base]];
+    let x = x0 - 12;
+    while (x < x1 + 12) {
+      const tt = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
+      const envelope = Math.max(0, Math.pow(Math.sin(Math.PI * tt), 1.2) + 0.35 * Math.sin(2.7 * Math.PI * tt));
+      pts.push([x, base - 6 - rnd() * 20 - envelope * (peak - 24)]);
+      x += 10 + rnd() * 14;
+    }
+    pts.push([x1 + 12, base]);
+    poly(ctx, pts, dune);
+    // القاعدة تمتزج بالماء بدثرنة بدل خط صلب
+    dither(ctx, x0 - 12, base - 7, x1 - x0 + 24, 9, mix(P.seaDeep, P.skyLow, 0.3), 0.3);
+    // لمعان قمم متقطع فوق النتوءات العالية فقط
     ctx.fillStyle = crest;
-    ctx.fillRect(mid - 30, base - peak - 2, 60, 2);
-    ctx.fillRect(x0 + (x1 - x0) * 0.2, Math.round(base - peak * 0.7) - 1, 34, 2);
+    for (let i = 1; i < pts.length - 1; i++)
+      if (pts[i][1] < base - peak * 0.55) ctx.fillRect(pts[i][0] - 2, pts[i][1] - 1, 5, 2);
   }
   midCache.set(phase, { cv });
   return midCache.get(phase);
