@@ -54,9 +54,8 @@ export async function renderWorld(app, state) {
   canvas.width = box.width * dpr; canvas.height = box.height * dpr;
   ctx.scale(dpr, dpr);
   const scale = Math.max(box.width / VIEW_W, box.height / VIEW_H); // تغطية لا احتواء
-  // منطقة HUD آمنة: viewOffY يتتبع البطل رأسيًا على الشاشات القصيرة ويثبّت الشريط السفلي على الطويلة
   const offX = (box.width - VIEW_W * scale) / 2;
-  const offY = viewOffY(box.height, scale, sami.y);
+  // ملاحظة: offY يُحسب داخل حلقة الرسم كل إطار — الكاميرا الرأسية تتبع البطل على الشاشات القصيرة
 
   if (!sheets) {
     try {
@@ -161,6 +160,12 @@ export async function renderWorld(app, state) {
         ? engine.doorTarget : engine.doorT + dd;
     }
 
+    // منطقة HUD آمنة: الكاميرا الرأسية تتبع البطل كل إطار على الشاشات القصيرة (تثبيت على الطويلة)
+    // وتُنعَّم مثل الكاميرا الأفقية حتى لا تقفز عند انتقالات المشاهد
+    const offYTarget = viewOffY(box.height, scale, sami.y);
+    if (engine.offYS == null) engine.offYS = offYTarget;
+    engine.offYS += (offYTarget - engine.offYS) * Math.min(1, dt / 300);
+    const offY = Math.round(engine.offYS);
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: storyNow.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
