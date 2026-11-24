@@ -1,5 +1,5 @@
 // Service Worker — precache بكاش مُرقّم lq-__BUILD__ (constraints §13)
-const BUILD = '2026-11-24-p38';
+const BUILD = '2026-11-24-p39';
 const CACHE = 'lq-' + BUILD;
 
 const FILES = [
@@ -37,6 +37,7 @@ const FILES = [
   'src/world/scenery.js',
   'src/world/destcard.js',
   'src/world/layout.js',
+  'src/world/camera.js',
   'src/world/renderer.js',
   'src/world/sprites.js',
   'src/world/sound.js',

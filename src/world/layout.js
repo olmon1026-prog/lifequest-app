@@ -185,23 +185,68 @@ function segBlocked(x0, y0, x1, y1) {
 }
 // مسار نقاط من (x0,y0) إلى (x1,y1): مستقيم إن كان سالكًا، وإلا عبر الطريق الحجري
 // (أقرب نقطة للبداية ← عينة كثيفة على المنحنى ← أقرب نقطة للهدف ← الهدف).
+// قاطع مستقيم يعترضه مبنى خلفي: الالتفاف حول المستطيل المعترض من الجانب الأقصر
+// عموديًا على الاتجاه الغالب — جنوبًا (أمام القاعدة) للمقاطع الأفقية (الشمال يمر فوق
+// السطح المرسوم: المباني الخلفية تُرسم قبل الممثل فيظهر فوق الواجهة)، وشرقًا/غربًا
+// للرأسية بهامش يخرج عن حافة السبرايت المرسومة (بصمة البصمة منزوحة 16px للداخل).
+// كل مقطع فرعي يُفحص تكراريًا، وبعد ٦ مستويات يُعاد المستقيم (لا أسوأ من السابق).
+function legWaypoints(x0, y0, x1, y1, depth = 0) {
+  if (depth > 6 || !segBlocked(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
+  let hit = null;
+  const n = Math.max(8, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6));
+  for (let i = 0; i <= n && !hit; i++) {
+    const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+    for (const b of BUILDINGS) {
+      if (b.front) continue;
+      const r = buildingRect(b);
+      if (x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1) { hit = r; break; }
+    }
+  }
+  if (!hit) return [{ x: x1, y: y1 }];
+  // مرشحو الالتفاف: أفقي ⇒ جنوبًا أمام القاعدة (الشمال يمر فوق السطح المرسوم)،
+  // رأسي ⇒ شرقًا أو غربًا بهامش يخرج عن حافة السبرايت. نختبر الأجزاء الثلاثة فورًا
+  // ونختار أول جانب سالك تمامًا — اختيار «الأقرب» وحده كان يتأرجح بين مبنيين متجاورين
+  // (ممر غرب housea تقفله كوخ الشاطئ) حتى ينفد العمق ويعود مستقيمًا عبر البصمة.
+  const legsOf = (w1, w2) => [[x0, y0, w1.x, w1.y], [w1.x, w1.y, w2.x, w2.y], [w2.x, w2.y, x1, y1]];
+  const allClean = (legs) => legs.every(([ax, ay, bx, by]) => !segBlocked(ax, ay, bx, by));
+  let sides;
+  if (Math.abs(x1 - x0) >= Math.abs(y1 - y0)) {
+    const sy = hit.y1 + 10;
+    sides = [{ w1: { x: x0, y: sy }, w2: { x: x1, y: sy } }];
+    if (sy > H - 24) sides.push({ w1: { x: x0, y: hit.y0 - 10 }, w2: { x: x1, y: hit.y0 - 10 } }); // قاع العالم: شمالًا اضطرارًا
+  } else {
+    const ex = hit.x1 + 18, wx = hit.x0 - 18;
+    const preferEast = Math.abs(ex - (x0 + x1) / 2) <= Math.abs(wx - (x0 + x1) / 2);
+    sides = (preferEast ? [ex, wx] : [wx, ex]).map((px) => ({ w1: { x: px, y: y0 }, w2: { x: px, y: y1 } }));
+  }
+  const chosen = sides.find((s) => allClean(legsOf(s.w1, s.w2))) || sides[0];
+  const out = [];
+  for (const [ax, ay, bx, by] of legsOf(chosen.w1, chosen.w2)) {
+    for (const p of legWaypoints(ax, ay, bx, by, depth + 1))
+      if (!out.length || Math.hypot(p.x - out[out.length - 1].x, p.y - out[out.length - 1].y) > 1) out.push(p);
+  }
+  return out;
+}
+
 export function routeWaypoints(x0, y0, x1, y1) {
   if (!segBlocked(x0, y0, x1, y1)) return [{ x: x1, y: y1 }];
   const tA = nearestPathT(x0, y0), tB = nearestPathT(x1, y1);
   const pts = [];
   const pA = pathPoint(tA);
-  if (Math.hypot(pA.x - x0, pA.y - y0) > 4) pts.push(pA);
+  // قاطعا الوصل (البداية←الطريق والطريق←الهدف) يُفحصان كباقي المسارات — كانا يخترقان
+  // الزوايا حتى ٢٦px داخل البصمات (تدقيق routes.fuzz)، خاصة عند بدء مشي من منتصف مسار مقطوع
+  if (Math.hypot(pA.x - x0, pA.y - y0) > 4) pts.push(...legWaypoints(x0, y0, pA.x, pA.y));
   // الاتجاه يتبع tA→tB: المشي غربًا (t تنازليًا) كان يدرج العينات تصاعديًا فيقفز
   // الممثل من أول الطريق لآخره بخط مستقيم يخترق المباني (تدقيق routes.test)
   const dir = tA <= tB ? 1 : -1;
   for (let t = tA + dir * 0.04; dir > 0 ? t < tB : t > tB; t += dir * 0.04) pts.push(pathPoint(t));
   pts.push(pathPoint(tB));
-  // نقطة انصراف عن الطريق باتجاه الهدف إن كانت قفزة الخروج محجوبة
-  if (segBlocked(pts[pts.length - 1].x, pts[pts.length - 1].y, x1, y1)) {
-    const ex = pts[pts.length - 1].x;
-    pts.push({ x: ex, y: y1 }); // هبوط/صعود عمودي على خط الهدف
-  }
-  pts.push({ x: x1, y: y1 });
-  // تنقية: أسقط النقاط المتتالية المتطابقة تقريبًا
-  return pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 3);
+  const last = pts[pts.length - 1];
+  if (Math.hypot(last.x - x1, last.y - y1) > 4) pts.push(...legWaypoints(last.x, last.y, x1, y1));
+  else pts.push({ x: x1, y: y1 });
+  // تنقية: أسقط النقاط المتتالية المتطابقة تقريبًا، مع ضمان أن النهاية هي الهدف تمامًا
+  const out = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 3);
+  const lp = out[out.length - 1];
+  if (Math.hypot(lp.x - x1, lp.y - y1) > 0.01) out.push({ x: x1, y: y1 });
+  return out;
 }

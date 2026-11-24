@@ -12,6 +12,7 @@ import { sounds, unlockAudio, setMuted, vibrate } from './sound.js';
 import { openAddSheet } from '../ui/sheet.js';
 import { arNum, todayStr } from '../core/dates.js';
 import { showDestinationCard } from './destcard.js';
+import { coverScale, followOffX, followCenterX, fitZoomFor, clampView, pinchView } from './camera.js';
 
 let raf = null, sheets = null;
 const sami = new Actor('sami', SPOTS.square.x, SPOTS.square.y, 0.5);   // ~٥٠px ≈ قامة الباب
@@ -54,12 +55,18 @@ export async function renderWorld(app, state) {
 
   const canvas = app.querySelector('#world-canvas');
   const ctx = canvas.getContext('2d');
-  const box = canvas.parentElement.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = box.width * dpr; canvas.height = box.height * dpr;
-  ctx.scale(dpr, dpr);
-  const scale = Math.max(box.width / VIEW_W, box.height / VIEW_H); // تغطية لا احتواء
-  const offX = (box.width - VIEW_W * scale) / 2;
+  const holder = canvas.parentElement;
+  let box, scale, offX;
+  const measure = () => { // تدوير/كيبورد/dpr: بدونها اللوحة تتمدد بنسبة غلط
+    box = holder.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    scale = coverScale(box.width, box.height); // تغطية لا احتواء
+    offX = followOffX(box.width, scale);
+  };
+  measure();
+  const ro = new ResizeObserver(measure); ro.observe(holder);
   // ملاحظة: offY يُحسب داخل حلقة الرسم كل إطار — الكاميرا الرأسية تتبع البطل على الشاشات القصيرة
 
   if (!sheets) {
@@ -82,7 +89,7 @@ export async function renderWorld(app, state) {
     el.style.cssText = `position:absolute;width:88px;text-align:center;
       background:rgba(14,34,56,.85);color:${st.key === 'locked' ? '#8FA8B8' : '#CFF5EA'};
       border:2px solid ${st.key === 'done' ? '#FFC857' : st.key === 'open' ? '#7FE0CF' : '#33475C'};
-      border-radius:10px;padding:3px 4px;font-size:11px;pointer-events:auto;cursor:pointer`;
+      border-radius:10px;padding:3px 4px;font-size:11px;pointer-events:auto;cursor:pointer;touch-action:none`;
     el.innerHTML = `<div style="font-weight:bold">${d.name}</div>
       <div style="font-size:10px;opacity:.9">${p.ratio === null ? st.label : `${arNum(p.done)}/${arNum(p.total)} · ${st.label}`}</div>`;
     el.onclick = () => { unlockAudio(); sounds.click(); showDestinationCard(app, d, p, st, state); };
@@ -117,12 +124,13 @@ export async function renderWorld(app, state) {
     mapbtn.style.display = engine.view.manual ? 'none' : '';
     backbtn.style.display = engine.view.manual ? '' : 'none';
   };
-  const fitZoom = () => Math.min(1, Math.min(box.width / W, box.height / H) / scale);
+  syncBtns(); // الحالة بتفضل بين إعادة الرسم
+  const fitZoom = () => fitZoomFor(box.width, box.height, scale);
   const enterManual = () => {
     const v = engine.view;
     if (v.manual) return;
-    v.manual = true; v.anim = false; v.zoom = 1;
-    v.cx = engine.camXi + box.width / (2 * scale); // نصف العرض الظاهر فعليًا عند zoom=1 (وليس VIEW_W/2 — التغطية تقص الأطراف)
+    v.manual = true; v.anim = false; v.returning = false; v.zoom = 1;
+    v.cx = followCenterX(engine.camXi); // مركز نافذة التتبع (offX السالب على الهواتف الطويلة بيخلّي «نصف العرض الظاهر» غلط)
     v.cy = (box.height / 2 - (engine.offYS ?? 0)) / scale;
     syncBtns();
   };
@@ -130,30 +138,38 @@ export async function renderWorld(app, state) {
     unlockAudio(); sounds.click();
     const v = engine.view;
     enterManual();
+    v.returning = false; // خريطة جديدة تلغي أي عودة جارية
     v.anim = true; v.tZoom = fitZoom(); v.tcx = W / 2; v.tcy = H / 2;
   };
   backbtn.onclick = () => {
     unlockAudio(); sounds.click();
     const v = engine.view;
-    v.manual = false; v.zoom = 1;
-    syncBtns();
+    if (!v.manual || v.returning) return;
+    // رجوع متحرّك: يكمّل يدوي لحد ما الزوم يوصل ١ ثم يسلّم للتتبع من نفس الموضع
+    v.anim = true; v.returning = true; v.tZoom = 1;
+    v.tcx = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x) + VIEW_W / 2;
+    v.tcy = (box.height / 2 - viewOffY(box.height, scale, sami.y)) / scale;
   };
   const pointers = new Map();
   let lastPinch = 0;
+  const DRAG_SLOP = 6; // أقل من كده لمسة مش سحب
   canvas.style.touchAction = 'none';
   canvas.addEventListener('pointerdown', (e) => {
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false });
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); }
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return;
     const prev = pointers.get(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const cur = { ...prev, x: e.clientX, y: e.clientY };
+    if (!cur.moved && Math.hypot(cur.x - cur.sx, cur.y - cur.sy) >= DRAG_SLOP) cur.moved = true;
+    pointers.set(e.pointerId, cur);
     const v = engine.view;
     if (pointers.size === 1) {
-      const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-      if (dx || dy) {
+      const dx = cur.x - prev.x, dy = cur.y - prev.y;
+      if (cur.moved && (dx || dy)) {
+        v.anim = false; v.returning = false; // الإصبع أقوى من أنيميشن الخريطة/العودة
         enterManual();
         const sc = scale * v.zoom;
         v.cx -= dx / sc; v.cy -= dy / sc;
@@ -163,17 +179,9 @@ export async function renderWorld(app, state) {
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       if (lastPinch > 0 && d > 0) {
         enterManual();
-        const v0 = engine.view, z0 = v0.zoom;
-        const z1 = Math.max(fitZoom(), Math.min(1, z0 * (d / lastPinch)));
-        if (z1 !== z0) {
-          // النقطة تحت منتصف القرصة تبقى ثابتة أثناء تغيير الزوم
-          const sc0 = scale * z0, sc1 = scale * z1;
-          const mx = (a.x + b.x) / 2 - box.left, my = (a.y + b.y) / 2 - box.top;
-          const wx = engine.camXi + mx / sc0, wy = (my - (engine.offYS ?? 0)) / sc0; // vox=٠ في الوضع اليدوي
-          v0.cx = wx - (mx - box.width / 2) / sc1;
-          v0.cy = wy - (my - box.height / 2) / sc1;
-          v0.zoom = z1;
-        }
+        v.anim = false; v.returning = false;
+        const r = canvas.getBoundingClientRect(); // حيّ كل حدث: الصندوق قد يتحرك
+        pinchView(v, box.width, box.height, scale, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, d / lastPinch);
       }
       lastPinch = d;
     }
@@ -207,7 +215,7 @@ export async function renderWorld(app, state) {
   if (raf) cancelAnimationFrame(raf);
   let last = performance.now();
   const loop = (now) => {
-    if (!document.body.contains(canvas)) { raf = null; return; }
+    if (!document.body.contains(canvas)) { raf = null; ro.disconnect(); return; }
     const w0 = performance.now(); // قياس زمن العمل الفعلي داخل الإطار (ليس إيقاع vsync)
     const dt = Math.min(50, now - last); last = now;
     const reduce = store.state.settings.reduceMotion;
@@ -251,12 +259,18 @@ export async function renderWorld(app, state) {
         view.zoom += (view.tZoom - view.zoom) * k;
         view.cx += (view.tcx - view.cx) * k;
         view.cy += (view.tcy - view.cy) * k;
-        if (Math.abs(view.zoom - view.tZoom) < 0.004) { view.zoom = view.tZoom; view.anim = false; }
+        if (Math.abs(view.zoom - view.tZoom) < 0.004) {
+          view.zoom = view.tZoom; view.anim = false;
+          if (view.returning) { // اكتمل الزوم: سلّم للتتبع بلا قفزة
+            view.returning = false; view.manual = false;
+            engine.camX = Math.max(0, Math.min(W - VIEW_W, view.cx - VIEW_W / 2));
+            syncBtns();
+          }
+        }
       }
+      clampView(view, box.width, box.height, scale); // يعيد قصّ الزوم المحفوظ بعد التدوير أيضًا
       vsc = scale * view.zoom;
-      const visW = box.width / vsc, visH = box.height / vsc;
-      view.cx = visW >= W ? W / 2 : Math.min(W - visW / 2, Math.max(visW / 2, view.cx));
-      view.cy = visH >= H ? H / 2 : Math.min(H - visH / 2, Math.max(visH / 2, view.cy));
+      const visW = box.width / vsc;
       vox = Math.round((box.width - visW * vsc) / 2); // =٠ عمليًا: النافذة تملأ العرض
       engine.camXi = Math.round(view.cx - visW / 2); // عند zoom=1 يطابق نافذة التتبع تمامًا — بلا قفزة
       offY = Math.round(box.height / 2 - view.cy * vsc);
@@ -306,7 +320,7 @@ export async function renderWorld(app, state) {
     // وإن كان خارج الشاشة: سهم عند الحافة يشير إليه — المستخدم لا يفقد موضعه أثناء التجول
     if (view.manual && sami.visible) {
       const bx = vox + (sami.x - engine.camXi) * vsc, by = offY + (sami.y - 30) * vsc;
-      const onScreen = bx >= -10 && bx <= box.width + 10 && by >= 50 && by <= box.height - 60;
+      const onScreen = bx >= -10 && bx <= box.width + 10 && by >= 72 && by <= box.height - 92;
       ctx.save();
       if (onScreen) {
         const pr = reduce ? 0 : 5 * Math.sin(now / 280);
@@ -390,7 +404,7 @@ export async function renderWorld(app, state) {
     // وسم «سامي هنا»/سهم الحافة في وضع الاستكشاف: اللافتات تتجنبه كالتنبيهات — لا تداخل نصي فوقه
     if (view.manual && sami.visible) {
       const bx = vox + (sami.x - engine.camXi) * vsc, by = offY + (sami.y - 30) * vsc;
-      if (bx >= -10 && bx <= box.width + 10 && by >= 50 && by <= box.height - 60)
+      if (bx >= -10 && bx <= box.width + 10 && by >= 72 && by <= box.height - 92)
         overlayRects.push({ l: bx - 34, r: bx + 34, t: by - 38, b: by - 14 }); // نص «سامي هنا» فوق الحلقة
       else {
         const ex = Math.max(26, Math.min(box.width - 26, bx)), ey = Math.max(72, Math.min(box.height - 92, by));
@@ -549,6 +563,12 @@ function goRestHome() {
 // يخرج من البيت عند حدث جديد: الباب ينفتح، يطلع سامي ثم بندق، الباب يقفل وراءهما
 function leaveHome() {
   if (!engine.resting) return;
+  if (engine.resting === 'entering' && !engine.doorTarget) {
+    // لسه ماوصلش الباب: ألغِ الدخول واقتل سلاسل المشي المعلّقة بدل ما تنقل سامي وبندق
+    sami.goTo(sami.x, sami.y); bondok.goTo(bondok.x, bondok.y);
+    engine.resting = false; engine.enterAt = 0; return;
+  }
+  engine.enterAt = 0; // مؤقت دخول قديم كان بيفعّل التلاشي في الشارع
   engine.resting = 'leaving';
   engine.doorTarget = 1;
   sami.x = SAMI_DOOR.x; sami.y = SAMI_DOOR.y - 4;

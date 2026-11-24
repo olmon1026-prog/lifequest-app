@@ -33,6 +33,8 @@ export class Actor {
       if (!this.moving && this.onArrive) { const f = this.onArrive; this.onArrive = null; f(); }
     } else {
       this.frame = 0;
+      // goTo لنقطة على بعد ≤١٫٥px: مفيش حركة يعني مفيش «وصول» وonArrive كانت بتتجمّد للأبد
+      if (this.onArrive) { const f = this.onArrive; this.onArrive = null; f(); }
     }
     if (this.hop > 0) this.hop = Math.max(0, this.hop - dt);
     if (this.alpha !== this.targetAlpha) {
