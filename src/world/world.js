@@ -24,6 +24,8 @@ const engine = {
   lastShown: JSON.parse(globalThis.localStorage?.getItem('lq-engine-v1') || 'null'),
   resting: false, doorT: 0, doorTarget: 0, enterAt: 0, camX: 0,
   trail: [], // أثر سامي (نقطة كل ~١٢px) — بندق يتبعه فلا يعبر مبنى لم يعبره سامي
+  // وضع العرض: تتبع تلقائي أو استكشاف يدوي (سحب/تصغير) — الكاميرا فقط، لا تحكم بسامي إطلاقًا
+  view: { manual: false, zoom: 1, cx: W / 2, cy: H / 2, anim: false, tZoom: 1, tcx: W / 2, tcy: H / 2 },
 };
 function saveEngine() {
   try { localStorage.setItem('lq-engine-v1', JSON.stringify(engine.lastShown)); } catch {}
@@ -46,6 +48,8 @@ export async function renderWorld(app, state) {
       <div id="digest" style="position:absolute;left:14px;bottom:64px;z-index:5"></div>
       <div id="next-task" style="position:absolute;right:14px;left:14px;bottom:10px;z-index:5"></div>
       <button class="fab" id="fab" aria-label="إضافة مهمة" style="bottom:auto;top:64px">+</button>
+      <button id="mapbtn" aria-label="خريطة العالم" style="position:absolute;top:122px;left:14px;z-index:6;background:rgba(14,34,56,.88);color:#CFF5EA;border:2px solid #33475C;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">🗺 الخريطة</button>
+      <button id="backbtn" aria-label="عودة لسامي" style="position:absolute;top:122px;left:14px;z-index:6;display:none;background:#0E2238;color:#FFC857;border:2px solid #FFC857;border-radius:10px;padding:6px 10px;font-size:12px;font-family:inherit">📍 عودة لسامي</button>
     </div>`;
 
   const canvas = app.querySelector('#world-canvas');
@@ -107,6 +111,77 @@ export async function renderWorld(app, state) {
   }
   app.querySelector('#fab').onclick = () => { unlockAudio(); openAddSheet({ dueDate: tStr }); };
 
+  // استكشاف العالم: زر خريطة (تصغير كامل) وزر عودة، وسحب/قرصة على اللوحة — الكاميرا فقط
+  const mapbtn = app.querySelector('#mapbtn'), backbtn = app.querySelector('#backbtn');
+  const syncBtns = () => {
+    mapbtn.style.display = engine.view.manual ? 'none' : '';
+    backbtn.style.display = engine.view.manual ? '' : 'none';
+  };
+  const fitZoom = () => Math.min(1, Math.min(box.width / W, box.height / H) / scale);
+  const enterManual = () => {
+    const v = engine.view;
+    if (v.manual) return;
+    v.manual = true; v.anim = false; v.zoom = 1;
+    v.cx = engine.camXi + box.width / (2 * scale); // نصف العرض الظاهر فعليًا عند zoom=1 (وليس VIEW_W/2 — التغطية تقص الأطراف)
+    v.cy = (box.height / 2 - (engine.offYS ?? 0)) / scale;
+    syncBtns();
+  };
+  mapbtn.onclick = () => {
+    unlockAudio(); sounds.click();
+    const v = engine.view;
+    enterManual();
+    v.anim = true; v.tZoom = fitZoom(); v.tcx = W / 2; v.tcy = H / 2;
+  };
+  backbtn.onclick = () => {
+    unlockAudio(); sounds.click();
+    const v = engine.view;
+    v.manual = false; v.zoom = 1;
+    syncBtns();
+  };
+  const pointers = new Map();
+  let lastPinch = 0;
+  canvas.style.touchAction = 'none';
+  canvas.addEventListener('pointerdown', (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); }
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.get(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const v = engine.view;
+    if (pointers.size === 1) {
+      const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+      if (dx || dy) {
+        enterManual();
+        const sc = scale * v.zoom;
+        v.cx -= dx / sc; v.cy -= dy / sc;
+      }
+    } else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastPinch > 0 && d > 0) {
+        enterManual();
+        const v0 = engine.view, z0 = v0.zoom;
+        const z1 = Math.max(fitZoom(), Math.min(1, z0 * (d / lastPinch)));
+        if (z1 !== z0) {
+          // النقطة تحت منتصف القرصة تبقى ثابتة أثناء تغيير الزوم
+          const sc0 = scale * z0, sc1 = scale * z1;
+          const mx = (a.x + b.x) / 2 - box.left, my = (a.y + b.y) / 2 - box.top;
+          const wx = engine.camXi + mx / sc0, wy = (my - (engine.offYS ?? 0)) / sc0; // vox=٠ في الوضع اليدوي
+          v0.cx = wx - (mx - box.width / 2) / sc1;
+          v0.cy = wy - (my - box.height / 2) / sc1;
+          v0.zoom = z1;
+        }
+      }
+      lastPinch = d;
+    }
+  });
+  const endPointer = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) lastPinch = 0; };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
   // طابور المشاهد من الإنجازات الجديدة (لا مشهد بلا حدث complete حقيقي)
   if (engine.lastShown?.day !== tStr) engine.digest = [];
   const completions = state.events.filter(e => e.kind === 'complete').length;
@@ -159,10 +234,36 @@ export async function renderWorld(app, state) {
       }
     }
 
-    // الكاميرا تتبع سامي بنعومة، ثم تُلتقط لبكسل صحيح (قاعدة فن البكسل: لا عينات كسرية)
-    const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
-    engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
-    engine.camXi = Math.round(engine.camX);
+    // الكاميرا: تتبع سامي بنعومة، أو استكشاف يدوي (سحب/تصغير) — المشاهد والراحة تفرض التتبع
+    const view = engine.view;
+    if ((engine.active || engine.resting) && view.manual) { view.manual = false; view.zoom = 1; syncBtns(); }
+    let vsc = scale, vox = offX, offY;
+    if (view.manual) {
+      if (view.anim) {
+        const k = Math.min(1, dt / 220);
+        view.zoom += (view.tZoom - view.zoom) * k;
+        view.cx += (view.tcx - view.cx) * k;
+        view.cy += (view.tcy - view.cy) * k;
+        if (Math.abs(view.zoom - view.tZoom) < 0.004) { view.zoom = view.tZoom; view.anim = false; }
+      }
+      vsc = scale * view.zoom;
+      const visW = box.width / vsc, visH = box.height / vsc;
+      view.cx = visW >= W ? W / 2 : Math.min(W - visW / 2, Math.max(visW / 2, view.cx));
+      view.cy = visH >= H ? H / 2 : Math.min(H - visH / 2, Math.max(visH / 2, view.cy));
+      vox = Math.round((box.width - visW * vsc) / 2); // =٠ عمليًا: النافذة تملأ العرض
+      engine.camXi = Math.round(view.cx - visW / 2); // عند zoom=1 يطابق نافذة التتبع تمامًا — بلا قفزة
+      offY = Math.round(box.height / 2 - view.cy * vsc);
+      engine.offYS = offY; // استئناف التتبع لاحقًا من نفس الموضع بلا قفزة
+    } else {
+      // تُلتقط لبكسل صحيح (قاعدة فن البكسل: لا عينات كسرية)
+      const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
+      engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
+      engine.camXi = Math.round(engine.camX);
+      const offYTarget = viewOffY(box.height, scale, sami.y);
+      if (engine.offYS == null) engine.offYS = offYTarget;
+      engine.offYS += (offYTarget - engine.offYS) * Math.min(1, dt / 300);
+      offY = Math.round(engine.offYS);
+    }
 
     // حركة الباب السلسة نحو هدفها
     if (engine.doorT !== engine.doorTarget) {
@@ -171,19 +272,15 @@ export async function renderWorld(app, state) {
         ? engine.doorTarget : engine.doorT + dd;
     }
 
-    // منطقة HUD آمنة: الكاميرا الرأسية تتبع البطل كل إطار على الشاشات القصيرة (تثبيت على الطويلة)
-    // وتُنعَّم مثل الكاميرا الأفقية حتى لا تقفز عند انتقالات المشاهد
-    const offYTarget = viewOffY(box.height, scale, sami.y);
-    if (engine.offYS == null) engine.offYS = offYTarget;
-    engine.offYS += (offYTarget - engine.offYS) * Math.min(1, dt / 300);
-    const offY = Math.round(engine.offYS);
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: lighthouseLamp(storyNow, state.items, todayStr()), flicker: engine.flicker && now < engine.flicker,
       camX: engine.camXi, doorT: engine.doorT, viewOffY: offY,
+      ...(view.manual ? { scale: vsc, viewW: box.width / vsc } : {}),
     };
+    if (view.manual) { ctx.fillStyle = '#0B1838'; ctx.fillRect(0, 0, box.width, box.height); } // خلفية داكنة خلف العالم المصغّر
     drawScene(ctx, box.width, box.height, now, env, 'back');
-    ctx.save(); ctx.translate(offX - engine.camXi * scale, offY); ctx.scale(scale, scale);
+    ctx.save(); ctx.translate(vox - engine.camXi * vsc, offY); ctx.scale(vsc, vsc);
     if (sheets) {
       bondok.draw(ctx, sheets.bondok, now);
       sami.draw(ctx, sheets.sami, now);
@@ -191,17 +288,31 @@ export async function renderWorld(app, state) {
     ctx.restore();
     drawScene(ctx, box.width, box.height, now, env, 'front');
 
+    // منارة موقع سامي في وضع الاستكشاف: حلقة نابضة ووسم «سامي هنا» (ثابتة في وضع تقليل الحركة)
+    if (view.manual && sami.visible) {
+      const bx = vox + (sami.x - engine.camXi) * vsc, by = offY + (sami.y - 30) * vsc;
+      const pr = reduce ? 0 : 5 * Math.sin(now / 280);
+      ctx.save();
+      ctx.strokeStyle = '#FFC857'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(bx, by, 15 + pr, 0, Math.PI * 2); ctx.stroke();
+      ctx.font = "bold 12px 'Tajawal', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
+      ctx.strokeText('سامي هنا', bx, by - 26); ctx.fillStyle = '#ffe9a8';
+      ctx.fillText('سامي هنا', bx, by - 26);
+      ctx.restore();
+    }
+
     // وهج الوجهة أثناء لحظة الإنجاز: تغذية راجعة مرئية فورية تقرأ بلا شرح (مصدر Habitica/Octalysis)
     if (engine.active?.kind === 'achievement' && engine.active.step === 'act' && engine.active.dest) {
       const d = engine.active.dest;
       const pulse = reduce ? 0.45 : 0.38 + 0.18 * Math.sin(now / 300);
-      const gx = offX + (d.x - engine.camXi) * scale, gy = offY + d.y * scale;
-      const g = ctx.createRadialGradient(gx, gy - 30 * scale, 4, gx, gy - 30 * scale, 76 * scale);
+      const gx = vox + (d.x - engine.camXi) * vsc, gy = offY + d.y * vsc;
+      const g = ctx.createRadialGradient(gx, gy - 30 * vsc, 4, gx, gy - 30 * vsc, 76 * vsc);
       g.addColorStop(0, `rgba(255,200,87,${pulse})`);
       g.addColorStop(0.55, `rgba(255,190,90,${pulse * 0.55})`);
       g.addColorStop(1, 'rgba(255,200,87,0)');
       ctx.fillStyle = g;
-      ctx.fillRect(gx - 76 * scale, gy - 106 * scale, 152 * scale, 152 * scale);
+      ctx.fillRect(gx - 76 * vsc, gy - 106 * vsc, 152 * vsc, 152 * vsc);
       // نص الإنجاز العائم فوق سامي: مرة واحدة عند بدء act، بالمقدار المسجل فعليًا لحدث الإكمال نفسه
       // (المشهد إعادة تمثيل بصرية ولا يمنح نقاطًا جديدة)، وبلا رقم إن لم يوجد مقدار مؤكد
       // لا نص عائم إلا لحدث يُعرض لأول مرة (fresh): إعادة العرض لا توحي بكسب جديد حتى لو الرقم صحيح
@@ -212,13 +323,13 @@ export async function renderWorld(app, state) {
           const k = el / DUR;
           const rise = reduce ? 0 : 34 * Math.min(1, k * 1.15); // بلا حركة في وضع تقليل الحركة
           const alpha = reduce ? (k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25) : Math.min(1, 5 * k) * (1 - Math.max(0, (k - 0.7) / 0.3));
-          const tx = offX + (sami.x - engine.camXi) * scale, ty = offY + (sami.y - 64 - rise) * scale;
+          const tx = vox + (sami.x - engine.camXi) * vsc, ty = offY + (sami.y - 64 - rise) * vsc;
           const txt = sc.xp ? `\u2066+${arNum(sc.xp)} XP\u2069` : 'أُنجز ✓'; // عزل LTR: تُقرأ +١٠ XP لا XP ١٠+
           ctx.save();
           ctx.globalAlpha = alpha;
-          ctx.font = `bold ${Math.round(15 * scale)}px 'Tajawal', sans-serif`;
+          ctx.font = `bold ${Math.round(15 * vsc)}px 'Tajawal', sans-serif`;
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.lineWidth = 4 * scale; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
+          ctx.lineWidth = 4 * vsc; ctx.strokeStyle = 'rgba(30,22,8,0.85)';
           ctx.strokeText(txt, tx, ty); // إطار داكن يضمن الوضوح نهارًا
           ctx.fillStyle = '#ffe9a8';
           ctx.fillText(txt, tx, ty);
@@ -229,9 +340,9 @@ export async function renderWorld(app, state) {
 
     // إزاحة اللافتات مع الكاميرا
     const actorRects = [sami, bondok].filter(a => a.visible && a.alpha > 0.3).map(a => {
-      const ax = offX + (a.x - engine.camXi) * scale, ay = offY + a.y * scale;
-      const ah = (sheets?.[a.name]?.frameHeight || 80) * a.scale * scale;
-      const aw = (sheets?.[a.name]?.frameWidth || 50) * a.scale * scale / 2;
+      const ax = vox + (a.x - engine.camXi) * vsc, ay = offY + a.y * vsc;
+      const ah = (sheets?.[a.name]?.frameHeight || 80) * a.scale * vsc;
+      const aw = (sheets?.[a.name]?.frameWidth || 50) * a.scale * vsc / 2;
       return { l: ax - aw - 6, r: ax + aw + 6, t: ay - ah - 6, b: ay + 4 };
     });
     // التنبيهات العائمة فوق المشهد (ملخص اليوم أسفل اليسار، شريحة حالة سامي أعلى اليمين):
@@ -244,11 +355,17 @@ export async function renderWorld(app, state) {
     }
     // أثناء نص الإنجاز العائم: اللافتات تتجنب منطقته حتى لا تغطيه (يُرسم على canvas تحت لافتات DOM)
     if (engine.active?.kind === 'achievement' && engine.active.step === 'act' && engine.active.actT0 && now - engine.active.actT0 < 2600) {
-      const fx = offX + (sami.x - engine.camXi) * scale, fy = offY + (sami.y - 64) * scale;
-      overlayRects.push({ l: fx - 60 * scale, r: fx + 60 * scale, t: fy - 46 * scale, b: fy + 14 * scale });
+      const fx = vox + (sami.x - engine.camXi) * vsc, fy = offY + (sami.y - 64) * vsc;
+      overlayRects.push({ l: fx - 60 * vsc, r: fx + 60 * vsc, t: fy - 46 * vsc, b: fy + 14 * vsc });
     }
+    const lblScale = vsc < scale * 0.8 ? Math.max(0.6, vsc / scale) : 1;
     for (const { el, d } of labelEls) {
-      const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
+      if ((el.dataset.ls || '1') !== String(lblScale)) {
+        el.dataset.ls = String(lblScale);
+        el.style.transformOrigin = 'bottom center';
+        el.style.transform = lblScale === 1 ? '' : `scale(${lblScale})`;
+      }
+      const lx = vox + (d.x - engine.camXi) * vsc, ly = offY + d.y * vsc;
       const clamped = Math.max(48, Math.min(box.width - 48, lx)); // اللافتة تبقى كاملة داخل الشاشة أفقيًا
       const hudTop = nt && nt.offsetTop ? nt.offsetTop : box.height - 56; // قياس فعلي لسطح شريط «المهمة التالية»
       const lh = el.offsetHeight || 34;
@@ -273,9 +390,9 @@ export async function renderWorld(app, state) {
           padding:3px 9px;color:#CFF5EA;font-size:11px">سامي: ${txt}</span>`;
       }
       const isDay = phase === 'day';
-      const sunSx = offX + (195 - engine.camXi * 0.08) * scale;
-      const sunSy = offY + (isDay ? 140 : 150) * scale;
-      const sunR = (isDay ? 26 : 34) * scale;
+      const sunSx = vox + (195 - engine.camXi * 0.08) * vsc;
+      const sunSy = offY + (isDay ? 140 : 150) * vsc;
+      const sunR = (isDay ? 26 : 34) * vsc;
       const cw = chip.offsetWidth || 130, chh = chip.offsetHeight || 26;
       const hits = (l, t) => l < sunSx + sunR + 6 && l + cw > sunSx - sunR - 6 &&
                              t < sunSy + sunR + 6 && t + chh > sunSy - sunR - 6;

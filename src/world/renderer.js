@@ -194,17 +194,18 @@ function drawFrontStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const night = phase === 'night';
   const still = env.reduceMotion;
-  const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
+  const s = env.scale || Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
+  const viewW = env.viewW || VIEW_W; // وضع الاستكشاف يمرّر نافذة أوسع (تصغير) — الافتراضي يحافظ على سلوك التتبع
   ctx.save();
-  ctx.translate(Math.round((w - VIEW_W * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
+  ctx.translate(Math.round((w - viewW * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
   ctx.scale(s, s);
-  ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
+  ctx.beginPath(); ctx.rect(0, 0, viewW, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
   ctx.imageSmoothingEnabled = false;
   const camXi = Math.round(camX); // التقاط الكاميرا لبكسل صحيح: لا اهتزاز عينات
 
   // المباني الأمامية (الصف الجنوبي): تغطي من يمر خلفها
   const { cv: nearF } = nearLayer(phase, true);
-  ctx.drawImage(nearF, camXi, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+  ctx.drawImage(nearF, camXi, 0, viewW, H, 0, 0, viewW, H);
 
   // باب بيت سامي المتحرك: تلاشٍ إلى نسخة «الباب المفتوح» المولّدة (احتياطي: رسم كودي)
   if (env.doorT > 0.01) {
@@ -226,16 +227,17 @@ function drawBackStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const { cv: far } = farLayer(phase);
   const { cv: near, chimneys } = nearLayer(phase, false);
-  const s = Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
+  const s = env.scale || Math.max(w / VIEW_W, h / VIEW_H); // تغطية كاملة بلا حواف فارغة؛ القص المتناظر يُبقي البطل بالمنتصف
+  const viewW = env.viewW || VIEW_W; // وضع الاستكشاف يمرّر نافذة أوسع (تصغير) — الافتراضي يحافظ على سلوك التتبع
   ctx.save();
-  ctx.translate(Math.round((w - VIEW_W * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
+  ctx.translate(Math.round((w - viewW * s) / 2), env.viewOffY != null ? env.viewOffY : Math.round(Math.min((h - VIEW_H * s) / 2, h - 56 - 630 * s)));
   ctx.scale(s, s);
-  ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
+  ctx.beginPath(); ctx.rect(0, 0, viewW, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
   ctx.imageSmoothingEnabled = false;
 
   // بعيد بشلل
   const par = Math.round(camX * 0.35);
-  ctx.drawImage(far, par, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+  ctx.drawImage(far, par, 0, viewW, H, 0, 0, viewW, H);
   const night = phase === 'night', day = phase === 'day';
   const still = env.reduceMotion;
 
@@ -298,10 +300,10 @@ function drawBackStage(ctx, w, h, time, env) {
 
   // وسط بشلل 0.65: رؤوس الخليج بين البحر (0.35) والأرض (1.0)
   const { cv: midCv } = midLayer(phase);
-  ctx.drawImage(midCv, Math.round(camX * 0.65), 0, VIEW_W, H, 0, 0, VIEW_W, H);
+  ctx.drawImage(midCv, Math.round(camX * 0.65), 0, viewW, H, 0, 0, viewW, H);
 
   // قريب (الطبقة الخلفية: أرض وطريق ومبانٍ شمالية)
-  ctx.drawImage(near, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+  ctx.drawImage(near, camX, 0, viewW, H, 0, 0, viewW, H);
 
   // دخان المداخن
   if (!still) {
