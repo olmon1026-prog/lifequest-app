@@ -137,9 +137,10 @@ export async function renderWorld(app, state) {
 
     sami.update(dt, now); bondok.update(dt, now);
 
-    // الكاميرا تتبع سامي بنعومة
+    // الكاميرا تتبع سامي بنعومة، ثم تُلتقط لبكسل صحيح (قاعدة فن البكسل: لا عينات كسرية)
     const targetCam = cameraFor(sami.visible ? sami.x : SAMI_DOOR.x);
     engine.camX += (targetCam - engine.camX) * Math.min(1, dt / 300);
+    engine.camXi = Math.round(engine.camX);
 
     // حركة الباب السلسة نحو هدفها
     if (engine.doorT !== engine.doorTarget) {
@@ -151,10 +152,10 @@ export async function renderWorld(app, state) {
     const env = {
       phase, heroT: heroT(state.items), reduceMotion: reduce,
       lamp: story.c1s5 ? 1 : 0, flicker: engine.flicker && now < engine.flicker,
-      camX: engine.camX, doorT: engine.doorT,
+      camX: engine.camXi, doorT: engine.doorT,
     };
     drawScene(ctx, box.width, box.height, now, env, 'back');
-    ctx.save(); ctx.translate(offX - engine.camX * scale, offY); ctx.scale(scale, scale);
+    ctx.save(); ctx.translate(offX - engine.camXi * scale, offY); ctx.scale(scale, scale);
     if (sheets) {
       bondok.draw(ctx, sheets.bondok, now);
       sami.draw(ctx, sheets.sami, now);
@@ -164,7 +165,7 @@ export async function renderWorld(app, state) {
 
     // إزاحة اللافتات مع الكاميرا
     for (const { el, d } of labelEls) {
-      const lx = offX + (d.x - engine.camX) * scale, ly = offY + d.y * scale;
+      const lx = offX + (d.x - engine.camXi) * scale, ly = offY + d.y * scale;
       el.style.left = (lx - 44) + 'px';
       el.style.top = (ly + 8) + 'px';
       el.style.display = (lx < -60 || lx > box.width + 60) ? 'none' : '';

@@ -179,18 +179,22 @@ function drawFrontStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const night = phase === 'night';
   const still = env.reduceMotion;
-  const sx = w / VIEW_W, sy = h / VIEW_H;
-  ctx.save(); ctx.scale(sx, sy);
-  ctx.imageSmoothingEnabled = true;
+  const s = Math.min(w / VIEW_W, h / VIEW_H);
+  ctx.save();
+  ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round((h - VIEW_H * s) / 2));
+  ctx.scale(s, s);
+  ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
+  ctx.imageSmoothingEnabled = false;
+  const camXi = Math.round(camX); // التقاط الكاميرا لبكسل صحيح: لا اهتزاز عينات
 
   // المباني الأمامية (الصف الجنوبي): تغطي من يمر خلفها
   const { cv: nearF } = nearLayer(phase, true);
-  ctx.drawImage(nearF, camX, 0, VIEW_W, H, 0, 0, VIEW_W, H);
+  ctx.drawImage(nearF, camXi, 0, VIEW_W, H, 0, 0, VIEW_W, H);
 
   // باب بيت سامي المتحرك: تلاشٍ إلى نسخة «الباب المفتوح» المولّدة (احتياطي: رسم كودي)
   if (env.doorT > 0.01) {
     const openIm = buildingSprite('sami-open', phase);
-    ctx.save(); ctx.translate(-camX, 0); ctx.globalAlpha = env.doorT;
+    ctx.save(); ctx.translate(-camXi, 0); ctx.globalAlpha = env.doorT;
     if (openIm) {
       const hh = SAMI_HOUSE.w * openIm.naturalHeight / openIm.naturalWidth;
       ctx.drawImage(openIm, SAMI_HOUSE.x - SAMI_HOUSE.w / 2, SAMI_HOUSE.y - hh, SAMI_HOUSE.w, hh);
@@ -207,12 +211,15 @@ function drawBackStage(ctx, w, h, time, env) {
   const camX = env.camX || 0;
   const { cv: far } = farLayer(phase);
   const { cv: near, chimneys } = nearLayer(phase, false);
-  const sx = w / VIEW_W, sy = h / VIEW_H;
-  ctx.save(); ctx.scale(sx, sy);
+  const s = Math.min(w / VIEW_W, h / VIEW_H);
+  ctx.save();
+  ctx.translate(Math.round((w - VIEW_W * s) / 2), Math.round((h - VIEW_H * s) / 2));
+  ctx.scale(s, s);
+  ctx.beginPath(); ctx.rect(0, 0, VIEW_W, H); ctx.clip(); // لا تسرّب للمؤثرات خارج إطار المشهد
   ctx.imageSmoothingEnabled = false;
 
   // بعيد بشلل
-  const par = camX * 0.35;
+  const par = Math.round(camX * 0.35);
   ctx.drawImage(far, par, 0, VIEW_W, H, 0, 0, VIEW_W, H);
   const night = phase === 'night', day = phase === 'day';
   const still = env.reduceMotion;
