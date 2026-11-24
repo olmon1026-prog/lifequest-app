@@ -18,6 +18,9 @@ export const store = {
     this.state.events = events;
     this.state.world = world[0] || null;
     this.state.settings = Object.fromEntries(settings.map(s => [s.key, s.value]));
+    // افتراضي تقليل الحركة يتبع تفضيل نظام التشغيل ما لم يختر المستخدم صراحة من الإعدادات (إتاحة)
+    if (this.state.settings.reduceMotion === undefined)
+      this.state.settings.reduceMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     this.state.ready = true;
     emit();
   },
