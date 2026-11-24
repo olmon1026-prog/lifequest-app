@@ -14,7 +14,7 @@ export function openAddSheet(preset = {}) {
   const today = todayStr();
   const state = {
     title: '', type: preset.type || 'task', parentId: preset.parentId || null,
-    priority: preset.priority || 1, dueKind: preset.dueDate ? null : (isGoalType(preset.type) ? 'none' : 'today'), area: preset.area || null,
+    priority: preset.priority || 1, dueKind: preset.dueDate ? (preset.dueDate === today ? 'today' : null) : (isGoalType(preset.type) ? 'none' : 'today'), area: preset.area || null,
     dueDate: preset.dueDate || null, dueTime: null, notes: '',
     keepOpen: true,
   };

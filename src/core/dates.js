@@ -56,7 +56,7 @@ export function dayName(s) { return AR_DAYS[parseDate(s).getDay()]; }
 export function monthName(y, m) { return AR_MONTHS[m - 1]; }
 export function fmtDateAr(s) {
   const d = parseDate(s);
-  return `${AR_DAYS[d.getDay()]} ${d.getDate()} ${AR_MONTHS[d.getMonth()]}`;
+  return `${AR_DAYS[d.getDay()]} ${arNum(d.getDate())} ${AR_MONTHS[d.getMonth()]}`;
 }
 // أرقام عربية للعرض
 export function arNum(n) {
