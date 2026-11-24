@@ -5,6 +5,7 @@ import { quickDate, todayStr, fmtDateAr, goalPeriod, weekStartOf, monthName, arN
 import { store } from '../store.js';
 
 const TYPE_LABELS = { task: 'مهمة', subtask: 'فرعية', stage: 'مرحلة', project: 'مشروع', goal_week: 'هدف أسبوعي', goal_month: 'هدف شهري', goal_year: 'هدف سنوي' };
+const NEW_WORD = { task: 'جديدة', subtask: 'جديدة', stage: 'جديدة', project: 'جديد', goal_week: 'جديد', goal_month: 'جديد', goal_year: 'جديد' };
 const PRI_XP = { 1: '+١٠ XP', 2: '+٢٠ XP', 3: '+٣٠ XP' };
 const GOAL_TYPES = ['goal_year', 'goal_month', 'goal_week'];
 function isGoalType(t) { return GOAL_TYPES.includes(t); }
@@ -51,8 +52,8 @@ export function openAddSheet(preset = {}) {
   function render() {
     root.innerHTML = `
       <div class="sheet-overlay"></div>
-      <div class="sheet" role="dialog" aria-label="مهمة جديدة">
-        <h2>${preset.editId ? 'تعديل' : TYPE_LABELS[state.type] + ' جديدة'}</h2>
+      <div class="sheet" role="dialog" aria-label="${preset.editId ? 'تعديل' : TYPE_LABELS[state.type] + ' ' + NEW_WORD[state.type]}">
+        <h2>${preset.editId ? 'تعديل' : TYPE_LABELS[state.type] + ' ' + NEW_WORD[state.type]}</h2>
         <div class="field"><label>العنوان</label>
           <input type="text" id="f-title" maxlength="120" value="${esc(state.title)}" placeholder="ماذا تريد أن تنجز؟" autofocus>
         </div>
