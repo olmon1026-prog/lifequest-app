@@ -211,7 +211,7 @@ function startStory(s, state) {
       break;
     }
     case 'abandoned':
-      sami.goTo(600, 626, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
+      sami.goTo(614, 630, () => { engine.active.step = 'act'; sami.pose = 'read'; engine.phaseEnds = performance.now() + 8000; });
       break;
     case 'notebook':
       sami.goTo(SPOTS.tree.x + 10, SPOTS.tree.y, () => {

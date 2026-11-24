@@ -24,16 +24,16 @@ export const BUILDINGS = [
   { sprite: 'sami',      x: 390, y: 512, w: 160, smoke: [ 0.27, -0.78] },
   { sprite: 'workshop',  x: 560, y: 484, w: 140, smoke: [ 0.30, -0.86] },
   // الصف الجنوبي: قصيرة لا تتجاوز الطريق (طبقة أمامية)
-  { sprite: 'market',    x: 150, y: 630, w: 80,  front: true },
+  { sprite: 'market',    x: 170, y: 640, w: 66,  front: true },
   { sprite: 'houseb',    x: 520, y: 614, w: 90,  front: true },
-  { sprite: 'ruined',    x: 610, y: 610, w: 110, front: true },
+  { sprite: 'ruined',    x: 620, y: 618, w: 110, front: true },
   { sprite: 'beachhut',  x: 132, y: 372, w: 100 },
 ];
 
 // صخور مولّدة على وجهي الجرفين
 export const ROCK_SPOTS = [
   { x: 30,  y: 268, w: 66 }, { x: 56, y: 200, w: 48 },          // الجرف الغربي
-  { x: 700, y: 240, w: 84 }, { x: 782, y: 316, w: 96 },         // جرف المنارة
+  { x: 706, y: 340, w: 44 }, { x: 782, y: 316, w: 96 },         // جرف المنارة (بعيدًا عن السلم)
 ];
 
 export const SAMI_HOUSE = { x: 390, y: 512, w: 160 };
@@ -47,10 +47,10 @@ export const FOREST_EDGE = 70;
 // الوجهات — الخيار الثالث المعتمد. spot = نقطة نشاط سامي.
 export const DESTINATIONS = [
   { id: 'health',   name: 'الشاطئ',   kind: 'beach',      x: 132, y: 372, spot: { x: 140, y: 392 } },
-  { id: 'learning', name: 'المنارة',  kind: 'lighthouse', x: 736, y: 200, spot: { x: 702, y: 228 } },
+  { id: 'learning', name: 'المنارة',  kind: 'lighthouse', x: 736, y: 200, spot: { x: 730, y: 204 } },
   { id: 'work',     name: 'الورشة',   kind: 'workshop',   x: 560, y: 484, spot: { x: 560, y: 506 } },
   { id: 'home',     name: 'بيت سامي', kind: 'house',      x: 390, y: 512, spot: { x: 424, y: 524 } },
-  { id: 'money',    name: 'السوق',    kind: 'market',     x: 150, y: 630, spot: { x: 150, y: 598 } },
+  { id: 'money',    name: 'السوق',    kind: 'market',     x: 170, y: 640, spot: { x: 170, y: 602 } },
 ];
 
 // نقاط الروتين اليومي
@@ -58,7 +58,7 @@ export const SPOTS = {
   door:      { x: 424, y: 524 },
   square:    { x: 322, y: 540 },
   beach:     { x: 140, y: 392 },
-  lighthouse:{ x: 702, y: 228 },
+  lighthouse:{ x: 730, y: 204 },
   tree:      { x: 96,  y: 596 },
   overlook:  { x: 620, y: 398 },
 };
@@ -67,9 +67,9 @@ export const SPOTS = {
 const PATH_POINTS = [
   { x: 16,  y: 634 }, { x: 90,  y: 590 }, { x: 180, y: 560 },
   { x: 268, y: 548 }, { x: 350, y: 540 }, { x: 414, y: 522 },
-  { x: 470, y: 496 }, { x: 530, y: 460 }, { x: 578, y: 414 },
-  { x: 622, y: 356 }, { x: 662, y: 300 }, { x: 692, y: 252 },
-  { x: 702, y: 228 },
+  { x: 470, y: 496 }, { x: 585, y: 492 }, { x: 645, y: 430 },
+  { x: 665, y: 350 }, { x: 680, y: 290 }, { x: 712, y: 230 },
+  { x: 734, y: 196 },
 ];
 
 // Catmull-Rom ناعم عبر نقاط الطريق
