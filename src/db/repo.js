@@ -59,6 +59,7 @@ export async function completeItem(id) {
   item.status = 'done';
   item.completedAt = Date.now();
   item.updatedAt = Date.now();
+  item.autoDone = false; // إكمال يدوي: لا يعكسه deriveCompletion مهما كان حال الأبناء
   const ev = {
     id: uuid(), ts: Date.now(), day: todayStr(),
     kind: 'complete', itemId: item.id, itemType: item.type,
@@ -95,6 +96,7 @@ export async function uncompleteItem(id) {
   item.status = 'todo';
   item.completedAt = null;
   item.updatedAt = Date.now();
+  item.autoDone = false;
   const ev = {
     id: uuid(), ts: Date.now(), day: todayStr(),
     kind: 'uncomplete', itemId: item.id, itemType: item.type,

@@ -41,9 +41,12 @@ export function deriveCompletion(items) {
       const allDone = children.every(c => c.status === 'done');
       if (allDone && it.status !== 'done') {
         it.status = 'done'; it.completedAt = Date.now(); it.updatedAt = Date.now();
+        it.autoDone = true; // إكمال مشتق: يُعكَس تلقائيًا لو انفتح ابن لاحقًا
         changed.push({ item: it, to: 'done' }); any = true;
-      } else if (!allDone && it.status === 'done' && it.completedAt && children.some(c => c.status !== 'done')) {
+      } else if (!allDone && it.status === 'done' && it.autoDone && children.some(c => c.status !== 'done')) {
+        // العكس للمشتقات فقط: الإكمال اليدوي لأبٍ له أبناء مفتوحون قرار المستخدم ولا يُقلب (وإلا أُعطي XP بلا إنجاز وصارت النقرة مزرعة XP)
         it.status = 'todo'; it.completedAt = null; it.updatedAt = Date.now();
+        it.autoDone = false;
         changed.push({ item: it, to: 'todo' }); any = true;
       }
     }

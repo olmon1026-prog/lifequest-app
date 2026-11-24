@@ -66,6 +66,17 @@ t('الاكتمال المشتق: الأب يكتمل ويعود (T5/T8)', () =>
   deriveCompletion(items);
   assert.equal(items[0].status, 'todo');
 });
+t('الإكمال اليدوي لأبٍ له ابن مفتوح لا يُقلب (منع مزرعة XP)', () => {
+  // المستخدم أكمل الأب يدويًا (autoDone=false كما يضبطه completeItem) وابنه ما زال مفتوحًا
+  const items = [mk({ id: 'p', status: 'done', completedAt: 1, autoDone: false }), mk({ id: 'c1', parentId: 'p' })];
+  const ch = deriveCompletion(items);
+  assert.equal(items[0].status, 'done');
+  assert.ok(!ch.some(c => c.item.id === 'p'));
+  // ولو اكتمل الابن لاحقًا: لا حدث إكمال جديد للأب (لا XP مضاعف)
+  items[1].status = 'done';
+  const ch2 = deriveCompletion(items);
+  assert.ok(!ch2.some(c => c.item.id === 'p'));
+});
 t('سلسلة سنوي←شهري←أسبوعي←مهمة←فرعية ترفع كل مستوى', () => {
   const items = [
     mk({ id: 'y', type: 'goal_year' }),
